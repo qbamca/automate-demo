@@ -1,0 +1,1185 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Geodeta × AI — demo możliwości przy projektach liniowych</title>
+<style>
+  /* ============ TOKENY ============ */
+  :root {
+    --bg: #F7F5F0;
+    --bg-raise: #FFFFFF;
+    --bg-inset: #EFECE4;
+    --ink: #23282E;
+    --ink-soft: #5C636C;
+    --line: #DDD7CB;
+    --line-soft: #E9E4D9;
+    --accent: #D9480F;
+    --accent-soft: #FBE8DD;
+    --accent-ink: #FFFFFF;
+    --data: #33658A;
+    --ok: #2B7A3D;
+    --ok-soft: #E1F0E3;
+    --warn: #94690A;
+    --warn-soft: #F7EDD3;
+    --bad: #B3261E;
+    --bad-soft: #F8E2E0;
+    --shadow: 0 1px 2px rgba(35,40,46,.06), 0 8px 24px -12px rgba(35,40,46,.14);
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", "JetBrains Mono", Consolas, "Liberation Mono", monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --radius: 6px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #15181D;
+      --bg-raise: #1D2127;
+      --bg-inset: #191D23;
+      --ink: #E8E5DE;
+      --ink-soft: #9BA2AC;
+      --line: #31373F;
+      --line-soft: #272C34;
+      --accent: #F0692C;
+      --accent-soft: #3A2418;
+      --accent-ink: #16100B;
+      --data: #7FB3D5;
+      --ok: #63BE74;
+      --ok-soft: #1D2E20;
+      --warn: #DFAE44;
+      --warn-soft: #322A16;
+      --bad: #E5756E;
+      --bad-soft: #362020;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 28px -12px rgba(0,0,0,.5);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #F7F5F0; --bg-raise: #FFFFFF; --bg-inset: #EFECE4;
+    --ink: #23282E; --ink-soft: #5C636C; --line: #DDD7CB; --line-soft: #E9E4D9;
+    --accent: #D9480F; --accent-soft: #FBE8DD; --accent-ink: #FFFFFF; --data: #33658A;
+    --ok: #2B7A3D; --ok-soft: #E1F0E3; --warn: #94690A; --warn-soft: #F7EDD3;
+    --bad: #B3261E; --bad-soft: #F8E2E0;
+    --shadow: 0 1px 2px rgba(35,40,46,.06), 0 8px 24px -12px rgba(35,40,46,.14);
+  }
+  :root[data-theme="dark"] {
+    --bg: #15181D; --bg-raise: #1D2127; --bg-inset: #191D23;
+    --ink: #E8E5DE; --ink-soft: #9BA2AC; --line: #31373F; --line-soft: #272C34;
+    --accent: #F0692C; --accent-soft: #3A2418; --accent-ink: #16100B; --data: #7FB3D5;
+    --ok: #63BE74; --ok-soft: #1D2E20; --warn: #DFAE44; --warn-soft: #322A16;
+    --bad: #E5756E; --bad-soft: #362020;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 28px -12px rgba(0,0,0,.5);
+  }
+
+  /* ============ BAZA ============ */
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  body::before {
+    content: "";
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background:
+      repeating-linear-gradient(to right, transparent 0 63px, var(--line-soft) 63px 64px),
+      repeating-linear-gradient(to bottom, transparent 0 63px, var(--line-soft) 63px 64px);
+    opacity: .5;
+    mask-image: linear-gradient(to bottom, rgba(0,0,0,.9), rgba(0,0,0,.25) 40%, rgba(0,0,0,.15));
+    -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,.9), rgba(0,0,0,.25) 40%, rgba(0,0,0,.15));
+  }
+  main { position: relative; z-index: 1; max-width: 1060px; margin: 0 auto; padding: 0 20px; }
+  h1, h2, h3 { line-height: 1.2; text-wrap: balance; margin: 0 0 .5em; }
+  h1 { font-size: clamp(1.9rem, 4.6vw, 3.1rem); font-weight: 800; letter-spacing: -0.02em; }
+  h2 { font-size: clamp(1.4rem, 3vw, 2rem); font-weight: 750; letter-spacing: -0.015em; }
+  h3 { font-size: 1.08rem; font-weight: 700; }
+  p { margin: 0 0 1em; max-width: 68ch; }
+  a { color: var(--accent); }
+  section { padding: 56px 0 8px; }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: .74rem;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 14px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .eyebrow::after { content: ""; flex: 0 0 42px; height: 1px; background: var(--accent); opacity: .5; }
+  .lead { font-size: 1.08rem; color: var(--ink-soft); }
+  .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .hidden { display: none !important; }
+
+  /* ============ NAWIGACJA ZAKŁADEK ============ */
+  .topnav {
+    position: sticky; top: 0; z-index: 10;
+    display: flex; justify-content: space-between; align-items: center; gap: 16px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--line);
+    padding: 12px 0;
+    margin: 0 0 4px;
+  }
+  .topnav .brand { font-family: var(--mono); font-size: .78rem; letter-spacing: .14em; font-weight: 600; }
+  .topnav .brand em { color: var(--accent); font-style: normal; }
+  .tablinks { display: flex; gap: 6px; }
+  .tab {
+    font: 600 .84rem/1 var(--sans); text-decoration: none; color: var(--ink-soft);
+    padding: 9px 14px; border-radius: 999px; border: 1px solid transparent;
+  }
+  .tab:hover { color: var(--ink); }
+  .tab.active { color: var(--accent); background: var(--accent-soft); }
+
+  /* ============ HERO ============ */
+  .hero { padding: 64px 0 24px; }
+  .hero-top {
+    display: flex; justify-content: space-between; align-items: baseline;
+    gap: 16px; flex-wrap: wrap;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 10px; margin-bottom: 40px;
+    font-family: var(--mono); font-size: .74rem; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--ink-soft);
+  }
+  .hero-top strong { color: var(--ink); font-weight: 600; }
+  .hero p.lead { font-size: 1.15rem; margin-top: 18px; }
+  .hero-cta { display: flex; gap: 12px; flex-wrap: wrap; margin: 26px 0 34px; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    font: 600 .92rem/1 var(--sans);
+    padding: 12px 20px; border-radius: var(--radius);
+    border: 1px solid var(--line); background: var(--bg-raise); color: var(--ink);
+    cursor: pointer; text-decoration: none;
+    transition: transform .12s ease, box-shadow .12s ease;
+  }
+  .btn:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
+  .btn:focus-visible, button:focus-visible, select:focus-visible {
+    outline: 2px solid var(--accent); outline-offset: 2px;
+  }
+  .btn-primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  .btn[disabled] { opacity: .55; cursor: default; transform: none; box-shadow: none; }
+  #heroCanvas {
+    width: 100%; height: 240px; display: block;
+    border: 1px solid var(--line); border-radius: var(--radius);
+    background: var(--bg-raise);
+  }
+  .hero-canvas-caption {
+    font-family: var(--mono); font-size: .72rem; color: var(--ink-soft);
+    margin-top: 8px; letter-spacing: .04em;
+  }
+
+  /* ============ KARTY PAIN POINTÓW ============ */
+  .grid-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 16px; margin-top: 28px; }
+  .card {
+    background: var(--bg-raise); border: 1px solid var(--line);
+    border-radius: var(--radius); padding: 22px 22px 14px;
+  }
+  .card h3 { margin-bottom: .45em; }
+  .card p { color: var(--ink-soft); font-size: .93rem; margin-bottom: .4em; }
+  .card .tag {
+    font-family: var(--mono); font-size: .68rem; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--data); display: block; margin-bottom: 10px;
+  }
+
+  /* ============ NARZĘDZIA (czego nie ruszamy) ============ */
+  .tools { background: var(--bg-inset); border: 1px solid var(--line); border-radius: var(--radius); padding: 26px 26px 20px; margin-top: 24px; }
+  .tool-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+  .tool-chips span {
+    font-family: var(--mono); font-size: .78rem;
+    border: 1px solid var(--line); background: var(--bg-raise);
+    border-radius: 999px; padding: 5px 12px; color: var(--ink-soft);
+  }
+
+  /* ============ SCENARIUSZE ============ */
+  .demo {
+    background: var(--bg-raise); border: 1px solid var(--line);
+    border-radius: var(--radius); box-shadow: var(--shadow);
+    padding: 26px; margin-top: 30px;
+  }
+  .demo-head { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+  .demo-num {
+    font-family: var(--mono); font-size: .74rem; letter-spacing: .12em;
+    color: var(--accent); text-transform: uppercase; white-space: nowrap;
+  }
+  .demo > .pain { color: var(--ink-soft); font-size: .95rem; margin: 6px 0 18px; }
+  .demo-stage {
+    border: 1px solid var(--line); border-radius: var(--radius);
+    background: var(--bg-inset); padding: 18px;
+  }
+  .demo-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+  .demo-note {
+    font-size: .82rem; color: var(--ink-soft); margin: 14px 0 0;
+    padding-top: 12px; border-top: 1px dashed var(--line);
+  }
+  .demo-note b { color: var(--accent); }
+
+  /* chipy statusów */
+  .chip {
+    display: inline-block; font: 600 .72rem/1 var(--mono);
+    letter-spacing: .04em; padding: 4px 9px; border-radius: 999px; white-space: nowrap;
+  }
+  .chip-ok   { background: var(--ok-soft);   color: var(--ok); }
+  .chip-warn { background: var(--warn-soft); color: var(--warn); }
+  .chip-bad  { background: var(--bad-soft);  color: var(--bad); }
+  .chip-data { background: var(--accent-soft); color: var(--accent); }
+
+  /* --- Demo 1: wypis EGiB --- */
+  .d1-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  @media (max-width: 780px) { .d1-grid { grid-template-columns: 1fr; } }
+  .doc {
+    background: var(--bg-raise); border: 1px solid var(--line);
+    padding: 18px; font-family: var(--mono); font-size: .78rem; line-height: 1.7;
+    color: var(--ink-soft); border-radius: 3px; position: relative;
+  }
+  .doc-title { text-align: center; color: var(--ink); font-weight: 700; letter-spacing: .08em; margin-bottom: 10px; }
+  .doc .hl { background: var(--accent-soft); color: var(--accent); border-radius: 2px; padding: 0 2px; transition: background .3s; }
+  .doc-label {
+    position: absolute; top: -10px; left: 12px;
+    background: var(--bg-inset); padding: 0 8px;
+    font-size: .66rem; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-soft);
+  }
+  table.extract { width: 100%; border-collapse: collapse; font-size: .84rem; background: var(--bg-raise); border: 1px solid var(--line); border-radius: 3px; }
+  table.extract th, table.extract td { text-align: left; padding: 7px 11px; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
+  table.extract th { font-family: var(--mono); font-weight: 500; font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-soft); width: 38%; }
+  table.extract td { font-family: var(--mono); color: var(--ink); }
+  table.extract td:empty::before { content: "—"; color: var(--line); }
+  .letter {
+    margin-top: 14px; background: var(--bg-raise); border: 1px solid var(--line);
+    border-left: 3px solid var(--accent); padding: 14px 16px; font-size: .85rem;
+    color: var(--ink-soft); border-radius: 3px;
+  }
+  .letter .mono { font-size: .72rem; color: var(--accent); text-transform: uppercase; letter-spacing: .08em; display: block; margin-bottom: 8px; }
+  .register { overflow-x: auto; }
+  table.register { width: 100%; border-collapse: collapse; font-size: .84rem; margin-top: 10px; }
+  table.register th, table.register td { text-align: left; padding: 8px 11px; border-bottom: 1px solid var(--line-soft); }
+  table.register th { font-family: var(--mono); font-size: .7rem; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-soft); font-weight: 500; }
+  table.register td:first-child { font-family: var(--mono); }
+  .reg-summary { font-family: var(--mono); font-size: .76rem; color: var(--ink-soft); margin-top: 10px; }
+  .reg-summary b { color: var(--accent); font-weight: 600; }
+
+  /* --- Demo 2: czat raportowy --- */
+  .chat { display: flex; flex-direction: column; gap: 10px; min-height: 120px; }
+  .msg { max-width: 88%; padding: 10px 14px; border-radius: 10px; font-size: .88rem; opacity: 0; transform: translateY(6px); transition: opacity .35s, transform .35s; }
+  .msg.show { opacity: 1; transform: none; }
+  .msg .who { font-family: var(--mono); font-size: .68rem; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-soft); display: block; margin-bottom: 4px; }
+  .msg-field { align-self: flex-start; background: var(--bg-raise); border: 1px solid var(--line); }
+  .msg-agent { align-self: flex-end; background: var(--accent-soft); border: 1px solid transparent; }
+  .msg-agent .who { color: var(--accent); }
+  .attach { display: inline-flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: .72rem; background: var(--bg-inset); border: 1px solid var(--line); border-radius: 4px; padding: 3px 8px; margin: 2px 4px 0 0; }
+  .report { font-size: .85rem; }
+  .report h4 { font-family: var(--mono); font-size: .76rem; letter-spacing: .06em; margin: 0 0 8px; color: var(--accent); }
+  .report ul { margin: 0 0 8px; padding-left: 18px; }
+  .report li { margin-bottom: 3px; }
+  .report .dest { font-family: var(--mono); font-size: .72rem; color: var(--ink-soft); border-top: 1px dashed var(--line); padding-top: 7px; margin-top: 8px; }
+  .typing { align-self: flex-end; font-family: var(--mono); font-size: .74rem; color: var(--ink-soft); padding: 4px 8px; }
+  .typing::after { content: "▌"; animation: blink 1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) {
+    .msg { transition: none; transform: none; }
+    .typing::after { animation: none; }
+  }
+
+  /* --- Demo 3: kontrola jakości --- */
+  .files { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+  .scanbar { height: 4px; background: var(--line-soft); border-radius: 2px; overflow: hidden; margin: 6px 0 14px; }
+  .scanbar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .5s ease; }
+  .findings { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  .findings li {
+    background: var(--bg-raise); border: 1px solid var(--line); border-radius: 4px;
+    padding: 10px 13px 10px 16px; font-size: .86rem; position: relative;
+    opacity: 0; transform: translateY(5px); transition: opacity .3s, transform .3s;
+  }
+  .findings li.show { opacity: 1; transform: none; }
+  .findings li::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; border-radius: 4px 0 0 4px; }
+  .findings li.f-bad::before  { background: var(--bad); }
+  .findings li.f-warn::before { background: var(--warn); }
+  .findings li.f-ok::before   { background: var(--ok); }
+  .findings .fk { font-family: var(--mono); font-size: .68rem; text-transform: uppercase; letter-spacing: .07em; display: block; margin-bottom: 3px; }
+  .f-bad .fk { color: var(--bad); } .f-warn .fk { color: var(--warn); } .f-ok .fk { color: var(--ok); }
+  @media (prefers-reduced-motion: reduce) { .findings li { transition: none; transform: none; } }
+
+  /* --- Demo 4: operat --- */
+  .d4-controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+  select {
+    font: 500 .9rem var(--sans); color: var(--ink);
+    background: var(--bg-raise); border: 1px solid var(--line);
+    border-radius: var(--radius); padding: 10px 14px; cursor: pointer;
+    max-width: 100%;
+  }
+  .checklist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  .checklist li {
+    display: flex; gap: 12px; align-items: flex-start;
+    background: var(--bg-raise); border: 1px solid var(--line); border-radius: 4px;
+    padding: 9px 13px; font-size: .87rem;
+  }
+  .checklist .ic { font-family: var(--mono); font-weight: 700; flex: 0 0 20px; text-align: center; }
+  .checklist li.c-ok .ic { color: var(--ok); }
+  .checklist li.c-warn .ic { color: var(--warn); }
+  .checklist li.c-bad .ic { color: var(--bad); }
+  .checklist small { display: block; color: var(--ink-soft); font-size: .78rem; }
+  .d4-src { font-family: var(--mono); font-size: .72rem; color: var(--ink-soft); margin-top: 12px; }
+
+  /* --- Demo 5: pytania --- */
+  .qbtns { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+  .qbtn {
+    font: 500 .84rem var(--sans); color: var(--ink);
+    background: var(--bg-raise); border: 1px solid var(--line);
+    border-radius: 999px; padding: 8px 15px; cursor: pointer; text-align: left;
+  }
+  .qbtn:hover:not([disabled]) { border-color: var(--accent); color: var(--accent); }
+  .qbtn[disabled] { opacity: .45; cursor: default; }
+  .msg-user { align-self: flex-start; background: var(--bg-raise); border: 1px solid var(--line); }
+  .answer b { color: var(--accent); }
+  .answer .num { font-family: var(--mono); font-weight: 600; }
+
+  /* ============ ZAJAWKA KATALOGU ============ */
+  .more-teaser {
+    margin-top: 30px; padding: 22px 26px;
+    border: 1px dashed var(--accent); border-radius: var(--radius);
+    background: var(--accent-soft);
+    display: flex; justify-content: space-between; align-items: center; gap: 18px; flex-wrap: wrap;
+  }
+  .more-teaser p { margin: 0; max-width: 58ch; font-size: .95rem; }
+  .more-teaser .mono-small { font-family: var(--mono); font-size: .7rem; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); display: block; margin-bottom: 4px; }
+
+  /* ============ KATALOG SCENARIUSZY (zakładka 2) ============ */
+  .cat-group { margin-top: 44px; }
+  .cat-group > h3 {
+    font-size: 1.2rem;
+    display: flex; align-items: baseline; gap: 12px;
+  }
+  .cat-group > h3 .mono { font-size: .72rem; color: var(--accent); letter-spacing: .1em; text-transform: uppercase; font-weight: 600; }
+  .cat-group > p { color: var(--ink-soft); font-size: .93rem; margin-bottom: 16px; }
+  details.acc {
+    background: var(--bg-raise); border: 1px solid var(--line);
+    border-radius: var(--radius); margin-bottom: 8px;
+  }
+  details.acc summary {
+    cursor: pointer; padding: 14px 18px;
+    display: flex; gap: 12px; align-items: baseline;
+    list-style: none; font-weight: 600; font-size: .95rem;
+  }
+  details.acc summary::-webkit-details-marker { display: none; }
+  details.acc summary::after {
+    content: "+"; margin-left: auto; flex: 0 0 auto;
+    font-family: var(--mono); font-size: 1rem; color: var(--accent);
+  }
+  details.acc[open] summary::after { content: "−"; }
+  details.acc[open] summary { border-bottom: 1px dashed var(--line); }
+  .acc-body { padding: 14px 18px 16px; font-size: .92rem; color: var(--ink-soft); }
+  .acc-body p { margin: 0 0 10px; max-width: none; }
+  .acc-body p:last-child { margin-bottom: 0; }
+  .acc-body b.k {
+    font-family: var(--mono); font-size: .7rem; letter-spacing: .08em;
+    text-transform: uppercase; font-weight: 600; display: block; margin-bottom: 2px;
+  }
+  .acc-body .k-problem { color: var(--bad); }
+  .acc-body .k-mozliwosc { color: var(--ok); }
+
+  /* ============ DLACZEGO TANIO ============ */
+  .why-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-top: 26px; }
+  .why-cards .card { border-top: 3px solid var(--accent); }
+
+  /* ============ CTA / STOPKA ============ */
+  .cta {
+    margin: 64px 0 0; padding: 44px 36px;
+    background: var(--ink); color: var(--bg); border-radius: var(--radius);
+    text-align: left;
+  }
+  :root[data-theme="dark"] .cta { background: var(--bg-raise); color: var(--ink); border: 1px solid var(--line); }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .cta { background: var(--bg-raise); color: var(--ink); border: 1px solid var(--line); } }
+  .cta h2 { color: inherit; }
+  .cta p { opacity: .85; }
+  .cta .mono-line { font-family: var(--mono); font-size: .76rem; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); margin-bottom: 14px; }
+  footer {
+    margin: 40px 0 0; padding: 26px 0 40px;
+    border-top: 1px solid var(--line);
+    font-size: .8rem; color: var(--ink-soft);
+  }
+  footer .mono { font-size: .7rem; letter-spacing: .06em; }
+</style>
+</head>
+<body>
+<main>
+
+  <nav class="topnav" aria-label="Zakładki">
+    <span class="brand">GEODETA <em>×</em> AI</span>
+    <div class="tablinks">
+      <a href="#start" class="tab" data-view="start">Start</a>
+      <a href="#wiecej" class="tab" data-view="wiecej">Więcej scenariuszy</a>
+    </div>
+  </nav>
+
+<div id="view-start">
+  <!-- ============ HERO ============ -->
+  <header class="hero">
+    <div class="hero-top">
+      <span><strong>DEMO MOŻLIWOŚCI</strong> · LLM + automatyzacja</span>
+      <span>obiekt: <strong>linia 400 kV</strong> · branża: geodezja</span>
+    </div>
+    <h1>Pomiar to ułamek projektu.<br>Resztę da się zautomatyzować.</h1>
+    <p class="lead">Przy linii energetycznej przez trzy powiaty prawdziwym kosztem nie jest tachimetria — są nim setki działek, wypisów, pism i raportów. To demo pokazuje, jaką część tej pracy współczesne modele językowe i automatyzacja mogą zdjąć z Twojego biurka. Dane poniżej są fikcyjne. Scenariusze — jak najbardziej realne.</p>
+    <div class="hero-cta">
+      <a class="btn btn-primary" href="#scenariusze">Zobacz 5 scenariuszy</a>
+      <a class="btn" href="#rozmowa">Umów rozmowę</a>
+    </div>
+    <canvas id="heroCanvas" aria-label="Schematyczny profil linii energetycznej ze słupami i pasem działek pod trasą" role="img"></canvas>
+    <p class="hero-canvas-caption">szkic poglądowy · odcinek C · stanowiska E-101…E-105 · pas działek wzdłuż osi trasy: <span style="color:var(--ok)">■</span> zgoda &nbsp;<span style="color:var(--warn)">■</span> negocjacje &nbsp;<span style="color:var(--bad)">■</span> brak kontaktu</p>
+  </header>
+
+  <!-- ============ PAIN POINTY ============ -->
+  <section id="problemy">
+    <p class="eyebrow">Gdzie naprawdę ucieka czas</p>
+    <h2>Sześć rzeczy, które znasz aż za dobrze</h2>
+    <p class="lead">Żadna z nich nie dotyczy samego mierzenia. Wszystkie dotyczą tego, co dzieje się wokół pomiaru.</p>
+    <div class="grid-cards">
+      <div class="card">
+        <span class="tag">działki · własność</span>
+        <h3>Setki działek, setki właścicieli</h3>
+        <p>Trasa linii to nierzadko ponad tysiąc działek w kilkunastu obrębach. Wypisy z EGiB przychodzą jako skany, a rejestr stanów prawnych i korespondencja ws. służebności przesyłu żyją w Excelu, który nocami skleja ktoś z biura.</p>
+      </div>
+      <div class="card">
+        <span class="tag">operaty · PODGiK</span>
+        <h3>Każdy ośrodek gra po swojemu</h3>
+        <p>Trzy powiaty na trasie to trzy interpretacje przepisów, trzy układy kompletowania operatu i trzy style uwag weryfikatora. Wiedza o tym, „czego chce ośrodek", siedzi w głowach, nie w systemie.</p>
+      </div>
+      <div class="card">
+        <span class="tag">raporty · inwestor</span>
+        <h3>Chaos raportowy</h3>
+        <p>Inwestor chce raportu postępu co tydzień, kierownik budowy — co dzień. Dane spływają SMS-em, głosówką, zdjęciem szkicu i CSV z kontrolera, a sklejanie ich w raport zjada wieczory.</p>
+      </div>
+      <div class="card">
+        <span class="tag">dane · brygady</span>
+        <h3>Dane z wielu brygad</h3>
+        <p>Trzy zespoły w terenie to trzy konwencje nazewnictwa punktów, duplikaty i rozjazdy wersji. Błąd wychodzi dopiero przy wyrównaniu — albo gorzej: u weryfikatora.</p>
+      </div>
+      <div class="card">
+        <span class="tag">wiedza · projekt</span>
+        <h3>Wiedza rozproszona</h3>
+        <p>„Które działki w gminie X nie mają jeszcze zgody?" — odpowiedź wymaga otwarcia rejestru, korespondencji, mapy i notatek z negocjacji. Pięć plików, pół godziny. A pytanie wraca co tydzień.</p>
+      </div>
+      <div class="card">
+        <span class="tag">formaty · konwersje</span>
+        <h3>Formaty i przeklejanie</h3>
+        <p>DXF z projektu, GML do ośrodka, CSV z kontrolera, XLSX dla inwestora, format podwykonawcy. Między nimi ręczne przeklejanie, w którym rodzą się literówki warte tygodnia poprawek.</p>
+      </div>
+    </div>
+
+    <div class="tools">
+      <h3>Twoje narzędzia zostają na miejscu</h3>
+      <p style="color:var(--ink-soft); font-size:.93rem;">Oprogramowanie obliczeniowe, projektowe i GIS robi swoją robotę dobrze — nie ma sensu go zastępować. Możliwości pokazane niżej żyją <em>pomiędzy</em> tymi narzędziami: w dokumentach, mailach, raportach i kontroli danych. Czyli tam, gdzie dziś standardem jest praca ręczna.</p>
+      <div class="tool-chips">
+        <span>Trimble Business Center</span><span>Leica Infinity</span><span>C-GEO</span><span>WinKalk</span><span>PLS-CADD</span><span>Civil 3D</span><span>MicroStation</span><span>TerraSolid</span><span>QGIS / ArcGIS</span><span>ASG-EUPOS</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SCENARIUSZE ============ -->
+  <section id="scenariusze">
+    <p class="eyebrow">Klikalne symulacje</p>
+    <h2>Pięć scenariuszy do przeklikania</h2>
+    <p class="lead">Każda symulacja pokazuje <em>klasę możliwości</em>, nie gotowy produkt — bo sensowne narzędzie musi być uszyte pod Twój proces, Twoje powiaty i Twojego inwestora.</p>
+
+    <!-- ===== DEMO 1 ===== -->
+    <article class="demo" id="demo1">
+      <div class="demo-head">
+        <span class="demo-num">Scenariusz 1 / 5</span>
+        <h3>Asystent działek i służebności</h3>
+      </div>
+      <p class="pain">Pain point: skan wypisu z EGiB → ręczne przepisywanie do rejestru → ręczne pisanie pisma do właściciela. Razy 312 działek.</p>
+      <div class="demo-stage">
+        <div class="d1-grid">
+          <div class="doc" id="d1doc">
+            <span class="doc-label">skan · PDF</span>
+            <div class="doc-title">WYPIS Z REJESTRU GRUNTÓW</div>
+            Starostwo Powiatowe w Grójcu<br>
+            Jedn. ewid.: <span data-f="jew">140605_5 Tarczyn — obszar wiejski</span><br>
+            Obręb: <span data-f="obr">0021 Przypki</span><br>
+            Nr działki: <span data-f="dz">142/3</span> &nbsp;·&nbsp; pow. <span data-f="pow">0,8342 ha</span><br>
+            Księga wieczysta: <span data-f="kw">RA1G/00048123/4</span><br>
+            Użytki: RIVa 0,5120 · RIVb 0,3222<br>
+            Podmiot ewidencyjny:<br>
+            <span data-f="wl">Nowak Jan, s. Stanisława</span><br>
+            adres: <span data-f="adr">ul. Polna 12, 05-555 Tarczyn</span><br>
+            udział: 1/1 — własność
+          </div>
+          <div>
+            <table class="extract" aria-label="Dane wyciągnięte z dokumentu">
+              <tr><th>Działka / obręb</th><td id="d1-dz"></td></tr>
+              <tr><th>Jedn. ewidencyjna</th><td id="d1-jew"></td></tr>
+              <tr><th>Powierzchnia</th><td id="d1-pow"></td></tr>
+              <tr><th>Księga wieczysta</th><td id="d1-kw"></td></tr>
+              <tr><th>Właściciel</th><td id="d1-wl"></td></tr>
+              <tr><th>Adres do doręczeń</th><td id="d1-adr"></td></tr>
+            </table>
+            <div class="letter hidden" id="d1letter">
+              <span class="mono">wygenerowany projekt pisma · do akceptacji</span>
+              Sz. P. Jan Nowak, ul. Polna 12, 05-555 Tarczyn<br><br>
+              <em>Dot.: ustanowienia służebności przesyłu — dz. nr 142/3, obręb Przypki</em><br><br>
+              W związku z realizacją inwestycji „Budowa linii 400 kV relacji …" zwracamy się z propozycją ustanowienia służebności przesyłu na ww. nieruchomości. Proponowane wynagrodzenie ustalono na podstawie operatu szacunkowego… <span class="mono" style="display:inline; text-transform:none;">[pełna treść wg Twojego szablonu]</span>
+            </div>
+          </div>
+        </div>
+        <div class="register hidden" id="d1reg">
+          <table class="register" aria-label="Fragment rejestru działek">
+            <tr><th>Działka · obręb</th><th>Właściciel</th><th>Status</th><th>Ostatni kontakt</th></tr>
+            <tr><td>142/3 · Przypki</td><td>Nowak J.</td><td><span class="chip chip-warn">negocjacje</span></td><td class="mono">2026-07-08</td></tr>
+            <tr><td>156/1 · Przypki</td><td>Wiśniewska M.</td><td><span class="chip chip-ok">zgoda</span></td><td class="mono">2026-07-02</td></tr>
+            <tr><td>89/4 · Many</td><td>Kowalski P.</td><td><span class="chip chip-bad">brak kontaktu</span></td><td class="mono">—</td></tr>
+            <tr><td>201/2 · Komorniki</td><td>Zielińscy A. i T.</td><td><span class="chip chip-ok">zgoda</span></td><td class="mono">2026-06-27</td></tr>
+          </table>
+          <p class="reg-summary">rejestr: <b>312 działek</b> · 247 przetworzonych automatycznie · 38 zgód do podpisu w tym tygodniu · 14 pism czeka na akceptację</p>
+        </div>
+      </div>
+      <div class="demo-actions">
+        <button class="btn btn-primary" id="d1run">Przetwórz dokument</button>
+        <button class="btn hidden" id="d1reset">Od nowa</button>
+      </div>
+      <p class="demo-note"><b>Klasa możliwości:</b> ekstrakcja danych ze skanów (wypisy, KW, akty), automatyczny rejestr stanów prawnych, generowanie spersonalizowanych pism wg Twoich szablonów, śledzenie statusów odpowiedzi. Człowiek akceptuje — nie przepisuje.</p>
+    </article>
+
+    <!-- ===== DEMO 2 ===== -->
+    <article class="demo" id="demo2">
+      <div class="demo-head">
+        <span class="demo-num">Scenariusz 2 / 5</span>
+        <h3>Raport dzienny w 30 sekund</h3>
+      </div>
+      <p class="pain">Pain point: brygady piszą jak piszą, a inwestor chce raport w swoim formacie. Ktoś to wieczorem skleja.</p>
+      <div class="demo-stage">
+        <div class="chat" id="d2chat" aria-live="polite"></div>
+      </div>
+      <div class="demo-actions">
+        <button class="btn btn-primary" id="d2run">Odtwórz symulację</button>
+        <button class="btn hidden" id="d2reset">Od nowa</button>
+      </div>
+      <p class="demo-note"><b>Klasa możliwości:</b> luźne wiadomości, głosówki, zdjęcia i pliki z terenu składane automatycznie w raport w formacie inwestora — z postępem liczonym z danych, nie z pamięci. Wysyłka i archiwizacja bez udziału człowieka.</p>
+    </article>
+
+    <!-- ===== DEMO 3 ===== -->
+    <article class="demo" id="demo3">
+      <div class="demo-head">
+        <span class="demo-num">Scenariusz 3 / 5</span>
+        <h3>Strażnik jakości danych</h3>
+      </div>
+      <p class="pain">Pain point: błędy z terenu wychodzą dopiero przy wyrównaniu albo u weryfikatora — najdroższym możliwym momencie.</p>
+      <div class="demo-stage">
+        <div class="files">
+          <span class="attach">📄 brygada_A_0711.csv · 486 pkt</span>
+          <span class="attach">📄 brygada_B_0711.txt · 402 pkt</span>
+          <span class="attach">📄 pomiar_C_0711.csv · 352 pkt</span>
+        </div>
+        <div class="scanbar" aria-hidden="true"><i id="d3bar"></i></div>
+        <ul class="findings" id="d3out" aria-live="polite"></ul>
+        <p class="reg-summary hidden" id="d3sum">kontrola: <b>1 240 punktów w 9 s</b> · problemy wykryte <b>przed</b> importem do obliczeń, nie po uwagach weryfikatora</p>
+      </div>
+      <div class="demo-actions">
+        <button class="btn btn-primary" id="d3run">Sprawdź dane z 3 brygad</button>
+        <button class="btn hidden" id="d3reset">Od nowa</button>
+      </div>
+      <p class="demo-note"><b>Klasa możliwości:</b> automatyczna kontrola spójności zanim dane trafią do TBC / C-GEO — nazewnictwo, duplikaty, kody, odchyłki względem osnowy i modelu terenu, kompletność względem harmonogramu. Reguły uczone na Twoich projektach.</p>
+    </article>
+
+    <!-- ===== DEMO 4 ===== -->
+    <article class="demo" id="demo4">
+      <div class="demo-head">
+        <span class="demo-num">Scenariusz 4 / 5</span>
+        <h3>Kompletator operatu</h3>
+      </div>
+      <p class="pain">Pain point: każdy PODGiK ma swoje zwyczaje, a uwagi weryfikatora przychodzą po dwóch tygodniach. Wiedza o wymaganiach ośrodków siedzi w głowach.</p>
+      <div class="demo-stage">
+        <div class="d4-controls">
+          <label for="d4sel" style="font-size:.9rem; font-weight:600;">Ośrodek:</label>
+          <select id="d4sel">
+            <option value="grojec">PODGiK — powiat grójecki</option>
+            <option value="piaseczno">PODGiK — powiat piaseczyński</option>
+            <option value="bialobrzegi">PODGiK — powiat białobrzeski</option>
+          </select>
+          <button class="btn btn-primary" id="d4run">Sprawdź kompletność operatu</button>
+        </div>
+        <ul class="checklist" id="d4out" aria-live="polite"></ul>
+        <p class="d4-src hidden" id="d4src"></p>
+      </div>
+      <p class="demo-note"><b>Klasa możliwości:</b> baza wymagań i historii uwag każdego ośrodka na trasie, automatyczna weryfikacja kompletności i zgodności (w tym walidacja GML) przed złożeniem — zamiast rundy poprawek po dwóch tygodniach.</p>
+    </article>
+
+    <!-- ===== DEMO 5 ===== -->
+    <article class="demo" id="demo5">
+      <div class="demo-head">
+        <span class="demo-num">Scenariusz 5 / 5</span>
+        <h3>Zapytaj o projekt</h3>
+      </div>
+      <p class="pain">Pain point: odpowiedź na proste pytanie o stan projektu wymaga otwarcia pięciu plików. Kliknij pytanie:</p>
+      <div class="demo-stage">
+        <div class="qbtns" id="d5btns">
+          <button class="qbtn" data-q="0">Które działki w gminie Tarczyn nie mają jeszcze zgody?</button>
+          <button class="qbtn" data-q="1">Ile stanowisk zostało do wytyczenia na odcinku C?</button>
+          <button class="qbtn" data-q="2">Jaka korespondencja czeka na odpowiedź?</button>
+        </div>
+        <div class="chat" id="d5chat" aria-live="polite"></div>
+      </div>
+      <div class="demo-actions">
+        <button class="btn hidden" id="d5reset">Od nowa</button>
+      </div>
+      <p class="demo-note"><b>Klasa możliwości:</b> jeden asystent nad wszystkimi danymi projektu — rejestrem działek, korespondencją, harmonogramem, danymi pomiarowymi. Pytasz po polsku, odpowiedź przychodzi z liczbami i źródłem. Także z telefonu, z terenu.</p>
+    </article>
+
+    <div class="more-teaser">
+      <p><span class="mono-small">poziom drugi · dla zainteresowanych</span>To tylko wierzchołek. Zebraliśmy <b>16 kolejnych scenariuszy</b> — od głosówek z terenu i uwag weryfikatora po SIWZ-y i rozliczenia podwykonawców.</p>
+      <a class="btn btn-primary" href="#wiecej">Zobacz katalog scenariuszy</a>
+    </div>
+  </section>
+
+  <!-- ============ DLACZEGO TANIO ============ -->
+  <section id="dlaczego">
+    <p class="eyebrow">Ekonomia rozwiązania</p>
+    <h2>Dlaczego to jest szybkie i tanie</h2>
+    <p class="lead">Te scenariusze nie wymagają projektu IT z korporacyjnym budżetem. Programowanie agentowe — oprogramowanie pisane przez AI pod nadzorem inżyniera — zmienia ekonomię narzędzi szytych na miarę.</p>
+    <div class="why-cards">
+      <div class="card">
+        <h3>Dni, nie kwartały</h3>
+        <p>Prototyp procesu, który dziś robisz ręcznie, powstaje w dni. Testujesz na prawdziwych danych po pierwszym tygodniu, a nie po roku wdrożenia.</p>
+      </div>
+      <div class="card">
+        <h3>Bez licencji enterprise</h3>
+        <p>Narzędzie robione pod jeden konkretny proces zamiast platformy „do wszystkiego" za dziesiątki tysięcy rocznie. Płacisz za rozwiązany problem, nie za moduły, których nie użyjesz.</p>
+      </div>
+      <div class="card">
+        <h3>Zmiany od ręki</h3>
+        <p>Nowy powiat na trasie, nowy szablon inwestora, zmiana rozporządzenia? Dostosowanie liczy się w godzinach. Narzędzie nadąża za projektem, a nie odwrotnie.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ CTA ============ -->
+  <section id="rozmowa" style="padding-bottom:0;">
+    <div class="cta">
+      <p class="mono-line">następny krok · 30 minut</p>
+      <h2>Zobaczyłeś coś znajomego?</h2>
+      <p>Umówmy się na pół godziny. Ty pokazujesz jeden proces, który najbardziej Cię męczy — my wracamy z działającym prototypem na Twoich danych. Bez zobowiązań, bez prezentacji w PowerPoincie. Jeśli prototyp nie oszczędza czasu, temat umiera śmiercią naturalną.</p>
+    </div>
+  </section>
+
+  </div><!-- /view-start -->
+
+  <!-- ============ ZAKŁADKA 2: KATALOG SCENARIUSZY ============ -->
+  <div id="view-wiecej" hidden>
+    <section style="padding-top:40px;">
+      <p class="eyebrow">Poziom drugi · katalog</p>
+      <h2>16 kolejnych scenariuszy</h2>
+      <p class="lead">Pięć symulacji na stronie startowej to próbka. Poniżej pełniejszy katalog miejsc, w których duży projekt liniowy krwawi czasem — pogrupowany tak, jak wygląda tydzień pracy: teren, urzędy, dane, biuro. Rozwiń to, co brzmi znajomo.</p>
+
+      <div class="cat-group">
+        <h3><span class="mono">A</span> Teren i brygady</h3>
+        <p>Wszystko między instrumentem a biurem: notatki, zdjęcia, logistyka, sprzęt.</p>
+
+        <details class="acc">
+          <summary>Głosówka zamiast dziennika</summary>
+          <div class="acc-body">
+            <p><b class="k k-problem">Problem</b>Kierownik brygady nie ma czasu pisać notatek — wieczorem połowa szczegółów umyka, a dziennik robót uzupełnia się „z pamięci" po tygodniu.</p>
+            <p><b class="k k-mozliwosc">Możliwość</b>Nagrywasz 40 sekund w drodze do auta. Asystent transkrybuje, rozpoznaje numery stanowisk i tworzy wpisy do dziennika oraz zadania („zamówić rurki", „zgłosić kolizję projektantowi") — do akceptacji jednym kliknięciem.</p>
+          </div>
+        </details>
+        <details class="acc">
+          <summary>Tysiące zdjęć bez opisu</summary>
+          <div class="acc-body">
+            <p><b class="k k-problem">Problem</b>Dokumentacja fotograficzna ląduje w jednym folderze na dysku. Znalezienie zdjęcia fundamentu E-117 sprzed miesiąca to loteria — a przy sporze z wykonawcą to zdjęcie jest na wagę złota.</p>
+            <p><b class="k k-mozliwosc">Możliwość</b>Automatyczne opisywanie i tagowanie zdjęć (stanowisko z geotagu i z treści kadru), wyszukiwanie po polsku: „pokaż zbrojenie fundamentu E-117 przed betonowaniem".</p>
+          </div>
+        </details>
+        <details class="acc">
+          <summary>Plan dnia dla trzech brygad</summary>
+          <div class="acc-body">
+            <p><b class="k k-problem">Problem</b>Układanie dnia to sudoku: zgody na wejście w teren, czasy dojazdu, pogoda, priorytety inwestora. Błąd oznacza brygadę stojącą pod zamkniętą bramą.</p>
+            <p><b class="k k-mozliwosc">Możliwość</b>Codzienna propozycja planu łącząca rejestr zgód, mapę dojazdów, prognozę i harmonogram. Konflikt — np. wyjazd na działkę bez zgody — wychwycony zanim ktokolwiek wsiądzie do auta.</p>
+          </div>
+        </details>
+        <details class="acc">
+          <summary>Sprzęt, wzorcowania, legalizacje</summary>
+          <div class="acc-body">
+            <p><b class="k k-problem">Problem</b>Świadectwa wzorcowania, przeglądy, rotacja instrumentów między brygadami — pilnowane w zeszycie albo w głowie szefa. Przeterminowane świadectwo wychodzi w najgorszym momencie: przy weryfikacji.</p>
+            <p><b class="k k-mozliwosc">Możliwość</b>Rejestr z alertami przed wygaśnięciem świadectw i historią „kto miał który instrument przy którym pomiarze" — bezcenną, gdy trzeba bronić jakości danych.</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="cat-group">
+        <h3><span class="mono">B</span> Dokumenty i urzędy</h3>
+        <p>EGiB, weryfikator, terminy administracyjne, firmowe archiwum.</p>
+
+        <details class="acc">
+          <summary>Właściciel zmienił się w trakcie projektu</summary>
+          <div class="acc-body">
+            <p><b class="k k-problem">Problem</b>Negocjujesz służebność z osobą, która pół roku temu sprzedała działkę — bo rejestr powstał z wypisów z początku projektu. Przy 300+ działkach nikt nie śledzi zmian na bieżąco.</p>
+            <p><b class="k k-mozliwosc">Możliwość</b>Okresowe porównywanie rejestru projektu z aktualnymi danymi ewidencyjnymi i alert przy każdej zmianie władania na działce z trasy — z automatycznie przygotowanym pakietem „nowy właściciel" (pismo, historia sprawy).</p>
+          </div>
+        </details>
+        <details class="acc">
+          <summary>Odpowiedź na uwagi weryfikatora</summary>
+          <div class="acc-body">
+            <p><b class="k k-problem">Problem</b>Protokół weryfikacji to dzień pracy: przejść uwagi punkt po punkcie, znaleźć w operacie właściwe pliki, poprawić, opisać co i jak zmieniono.</p>
+            <p><b class="k k-mozliwosc">Możliwość</b>Automatyczne sparowanie każdej uwagi z plikami operatu, propozycje poprawek tam, gdzie są mechaniczne (atrybuty GML, braki formalne), i projekt pisma-odpowiedzi punkt po punkcie — do redakcji, nie od zera.</p>
+          </div>
+        </details>
+        <details class="acc">
+          <summary>Terminy administracyjne w jednym miejscu</summary>
+          <div class="acc-body">
+            <p><b class="k k-problem">Problem</b>Narady koordynacyjne, ważność zgłoszeń prac, terminy odpowiedzi na pisma — rozsiane po skrzynce, trzech kalendarzach i głowie. Przegapiony termin potrafi zatrzymać odcinek.</p>
+            <p><b class="k k-mozliwosc">Możliwość</b>System czyta przychodzącą korespondencję, sam wyciąga terminy i buduje jeden rejestr z eskalacjami („zostały 3 dni, nikt nie odpisał") — zanim cokolwiek przepadnie.</p>
+          </div>
+        </details>
+        <details class="acc">
+          <summary>Archiwum, które odpowiada na pytania</summary>
+          <div class="acc-body">
+            <p><b class="k k-problem">Problem</b>Stare operaty, szkice i osnowy z poprzednich prac firmy leżą w segregatorach i nieopisanych skanach. Nikt nie wie, co już kiedyś mierzyliście na danym terenie — więc mierzy się drugi raz.</p>
+            <p><b class="k k-mozliwosc">Możliwość</b>Digitalizacja z indeksem treści: pytasz „co mamy z obrębu Przypki?" i dostajesz listę operatów, szkiców i punktów osnowy z linkami do plików.</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="cat-group">
+        <h3><span class="mono">C</span> Dane i integracje</h3>
+        <p>Styki między systemami — tam, gdzie dziś jest ręczne przeklejanie.</p>
+
+        <details class="acc">
+          <summary>Konwerter pod konkretnego partnera</summary>
+          <div class="acc-body">
+            <p><b class="k k-problem">Problem</b>Podwykonawca oddaje dane w swoim formacie, projektant w swoim, inwestor chce w jeszcze innym. Każda wymiana to ręczna przeróbka — i okazja do błędu.</p>
+            <p><b class="k k-mozliwosc">Możliwość</b>Konwerter szyty pod tę jedną, konkretną wymianę — z walidacją po drodze. Robiony raz, w dzień-dwa, działa do końca projektu. To dokładnie ten typ narzędzia, który agentowe programowanie robi najtaniej.</p>
+          </div>
+        </details>
+        <details class="acc">
+          <summary>Co zmieniła rewizja D?</summary>
+          <div class="acc-body">
+            <p><b class="k k-problem">Problem</b>Projektant wydaje kolejną rewizję. Które stanowiska się przesunęły, które rzędne zmieniły, co trzeba wytyczyć od nowa — ustala się ręcznie, porównując rysunki.</p>
+            <p><b class="k k-mozliwosc">Możliwość</b>Automatyczne porównanie rewizji i raport różnic z perspektywy geodezji: przesunięte stanowiska z wartościami, zmienione rzędne, nowe kolizje, lista roboczych „do ponownego wytyczenia".</p>
+          </div>
+        </details>
+        <details class="acc">
+          <summary>Dashboard zamiast maila z Excelem</summary>
+          <div class="acc-body">
+            <p><b class="k k-problem">Problem</b>Cotygodniowy raport dla inwestora to ręczne zestawienia z kilku źródeł. Zawsze w piątek, zawsze po godzinach.</p>
+            <p><b class="k k-mozliwosc">Możliwość</b>Panel postępu aktualizowany wprost z danych źródłowych (wytyczenia, pomiary, zgody, korespondencja). Inwestor patrzy sam, kiedy chce. Ty odzyskujesz piątki.</p>
+          </div>
+        </details>
+        <details class="acc">
+          <summary>Bramka kontrolna przed wysyłką</summary>
+          <div class="acc-body">
+            <p><b class="k k-problem">Problem</b>Literówka w numerze KW, zła strefa układu, suma powierzchni niezgodna między załącznikami — wychodzi u odbiorcy i wraca jako zwrot albo, gorzej, jako podważenie wiarygodności.</p>
+            <p><b class="k k-mozliwosc">Możliwość</b>Automatyczna kontrola wszystkiego, co opuszcza firmę: spójność numerów działek i KW między dokumentami, układy współrzędnych, sumy powierzchni, kompletność załączników.</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="cat-group">
+        <h3><span class="mono">D</span> Biuro, oferty, ludzie</h3>
+        <p>To, co dzieje się przed projektem i obok niego.</p>
+
+        <details class="acc">
+          <summary>SIWZ na 400 stron, decyzja na jutro</summary>
+          <div class="acc-body">
+            <p><b class="k k-problem">Problem</b>Dokumentacja przetargowa na setki stron, wymagania porozrzucane między OPZ, umową i załącznikami. Decyzja „wchodzimy / nie wchodzimy" wymaga dnia czytania.</p>
+            <p><b class="k k-mozliwosc">Możliwość</b>Ekstrakcja wymagań (terminy, kary, zakres, wymagane uprawnienia i sprzęt), checklist zgodności i szkic harmonogramu — materiał do decyzji w godzinę zamiast w dzień.</p>
+          </div>
+        </details>
+        <details class="acc">
+          <summary>Rozliczenia z podwykonawcami</summary>
+          <div class="acc-body">
+            <p><b class="k k-problem">Problem</b>Obmiary i protokoły spływają w różnych formach; sporne pozycje wyjaśnia się tygodniami, a faktury czekają.</p>
+            <p><b class="k k-mozliwosc">Możliwość</b>Automatyczne zestawienie wykonanych zakresów z danych pomiarowych względem umowy: co zrobione, co poza zakresem, gotowy protokół odbioru do podpisu.</p>
+          </div>
+        </details>
+        <details class="acc">
+          <summary>Nowy człowiek w zespole</summary>
+          <div class="acc-body">
+            <p><b class="k k-problem">Problem</b>Wdrożenie pochłania czas najlepszych ludzi, a wiedza firmowa — jak nazywamy punkty, jak składamy operaty, czego chce który ośrodek — nie jest nigdzie spisana.</p>
+            <p><b class="k k-mozliwosc">Możliwość</b>Firmowa baza wiedzy, którą pyta się po polsku. Nowy pracownik dostaje odpowiedzi z Waszych standardów i historii projektów — nie z forów internetowych.</p>
+          </div>
+        </details>
+        <details class="acc">
+          <summary>Wycena z pamięcią instytucjonalną</summary>
+          <div class="acc-body">
+            <p><b class="k k-problem">Problem</b>Nowa oferta jest podobna do tamtej sprzed dwóch lat, ale nikt nie pamięta założeń ani tego, ile odcinek naprawdę kosztował w robociźnie.</p>
+            <p><b class="k k-mozliwosc">Możliwość</b>Baza historycznych kalkulacji zestawiona z rzeczywistą czasochłonnością powykonawczą. Przy nowej ofercie system podpowiada realne stawki z podobnych odcinków — wycena przestaje być zgadywaniem.</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="more-teaser" style="margin-top:48px;">
+        <p><span class="mono-small">żaden nie pasuje?</span>Ten katalog nie jest zamknięty. Najlepsze scenariusze zawsze wychodzą z rozmowy o <b>Twoim</b> konkretnym tygodniu pracy — opowiedz nam o nim.</p>
+        <a class="btn btn-primary" href="#rozmowa">Umów rozmowę</a>
+      </div>
+    </section>
+  </div><!-- /view-wiecej -->
+
+  <footer>
+    <p class="mono">Wszystkie dane, nazwiska, numery działek i dokumenty w tym demie są fikcyjne — zbieżność przypadkowa. Demo poglądowe: pokazuje klasę możliwości, nie gotowy produkt.</p>
+  </footer>
+</main>
+
+<script>
+(function () {
+  "use strict";
+  var RM = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  function sleep(ms) { return new Promise(function (r) { setTimeout(r, RM ? 0 : ms); }); }
+  function $(id) { return document.getElementById(id); }
+
+  /* ============ HERO CANVAS ============ */
+  var canvas = $("heroCanvas");
+  function cssVar(name) {
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  }
+  function drawHero() {
+    var dpr = window.devicePixelRatio || 1;
+    var w = canvas.clientWidth, h = canvas.clientHeight;
+    if (!w || !h) return;
+    canvas.width = w * dpr; canvas.height = h * dpr;
+    var ctx = canvas.getContext("2d");
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+
+    var line = cssVar("--line"), ink = cssVar("--ink-soft"),
+        accent = cssVar("--accent"), ok = cssVar("--ok"),
+        warn = cssVar("--warn"), bad = cssVar("--bad");
+
+    var groundY = h * 0.62, bandTop = h * 0.72;
+
+    // siatka pozioma (rzędne)
+    ctx.strokeStyle = line; ctx.lineWidth = 1; ctx.globalAlpha = 0.5;
+    for (var gy = 20; gy < groundY; gy += 28) {
+      ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(w, gy); ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+
+    // pas działek pod trasą
+    var statuses = [ok, ok, warn, ok, bad, warn, ok, ok, warn, ok, bad, ok, ok, warn, ok];
+    var x = 0, i = 0;
+    while (x < w) {
+      var pw = 40 + ((i * 37) % 60);
+      ctx.globalAlpha = 0.16;
+      ctx.fillStyle = statuses[i % statuses.length];
+      ctx.fillRect(x, bandTop, pw, h - bandTop);
+      ctx.globalAlpha = 0.55;
+      ctx.strokeStyle = line;
+      ctx.beginPath(); ctx.moveTo(x, bandTop); ctx.lineTo(x, h); ctx.stroke();
+      x += pw; i++;
+    }
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = ink; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(0, bandTop); ctx.lineTo(w, bandTop); ctx.stroke();
+
+    // linia terenu
+    ctx.strokeStyle = ink; ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.moveTo(0, groundY);
+    for (var tx = 0; tx <= w; tx += 8) {
+      ctx.lineTo(tx, groundY + Math.sin(tx / 90) * 4 + Math.sin(tx / 33) * 2);
+    }
+    ctx.stroke();
+
+    // słupy + przewody (krzywe łańcuchowe)
+    var n = Math.max(3, Math.round(w / 230));
+    var span = w / n, pylH = h * 0.42;
+    var tops = [];
+    ctx.strokeStyle = accent; ctx.lineWidth = 1.6;
+    ctx.font = "600 10px ui-monospace, monospace";
+    for (var p = 0; p <= n; p++) {
+      var px = span * p + span / 2 - span / 2; // słupy również na krawędziach
+      px = span * p;
+      if (p === 0) px = span * 0.18;
+      if (p === n) px = w - span * 0.18;
+      var gy2 = groundY + Math.sin(px / 90) * 4 + Math.sin(px / 33) * 2;
+      var topY = gy2 - pylH;
+      tops.push([px, topY]);
+      // trzon + kratownica uproszczona
+      ctx.beginPath();
+      ctx.moveTo(px - 9, gy2); ctx.lineTo(px, topY); ctx.lineTo(px + 9, gy2);
+      ctx.moveTo(px - 6.5, gy2 - pylH * 0.30); ctx.lineTo(px + 6.5, gy2 - pylH * 0.30);
+      ctx.moveTo(px - 4.5, gy2 - pylH * 0.60); ctx.lineTo(px + 4.5, gy2 - pylH * 0.60);
+      // poprzeczniki
+      ctx.moveTo(px - 16, topY + 10); ctx.lineTo(px + 16, topY + 10);
+      ctx.moveTo(px - 11, topY + 22); ctx.lineTo(px + 11, topY + 22);
+      ctx.stroke();
+      // etykieta stanowiska
+      ctx.fillStyle = ink;
+      ctx.fillText("E-" + (101 + p), px - 12, gy2 + 14);
+    }
+    // przewody
+    ctx.strokeStyle = accent; ctx.lineWidth = 1; ctx.globalAlpha = 0.85;
+    [10, 22].forEach(function (off) {
+      for (var s = 0; s < tops.length - 1; s++) {
+        var a = tops[s], b = tops[s + 1];
+        var sag = 16 + off * 0.4;
+        ctx.beginPath();
+        ctx.moveTo(a[0], a[1] + off);
+        ctx.quadraticCurveTo((a[0] + b[0]) / 2, a[1] + off + sag, b[0], b[1] + off);
+        ctx.stroke();
+      }
+    });
+    ctx.globalAlpha = 1;
+  }
+  drawHero();
+  window.addEventListener("resize", drawHero);
+  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", drawHero);
+  new MutationObserver(drawHero).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+  /* ============ ZAKŁADKI ============ */
+  var currentView = null;
+  function route() {
+    var v = location.hash === "#wiecej" ? "wiecej" : "start";
+    var changed = v !== currentView;
+    currentView = v;
+    $("view-start").hidden = v !== "start";
+    $("view-wiecej").hidden = v !== "wiecej";
+    document.querySelectorAll(".tab").forEach(function (a) {
+      a.classList.toggle("active", a.dataset.view === v);
+    });
+    if (!changed) return; // kotwice wewnątrz widoku obsługuje przeglądarka
+    if (v === "start") requestAnimationFrame(drawHero);
+    var target = null;
+    if (location.hash && location.hash !== "#wiecej" && location.hash !== "#start") {
+      target = document.querySelector(location.hash);
+    }
+    if (target) target.scrollIntoView();
+    else window.scrollTo(0, 0);
+  }
+  window.addEventListener("hashchange", route);
+  route();
+
+  /* ============ DEMO 1: WYPIS EGiB ============ */
+  var d1fields = ["dz", "jew", "pow", "kw", "wl", "adr"];
+  var d1vals = {
+    dz: "142/3 · 0021 Przypki",
+    jew: "140605_5 Tarczyn",
+    pow: "0,8342 ha",
+    kw: "RA1G/00048123/4",
+    wl: "Nowak Jan, s. Stanisława (1/1)",
+    adr: "ul. Polna 12, 05-555 Tarczyn"
+  };
+  var d1busy = false;
+  $("d1run").addEventListener("click", async function () {
+    if (d1busy) return;
+    d1busy = true;
+    this.disabled = true;
+    this.textContent = "Przetwarzanie…";
+    for (var i = 0; i < d1fields.length; i++) {
+      var f = d1fields[i];
+      var docSpans = document.querySelectorAll('#d1doc [data-f="' + f + '"]');
+      docSpans.forEach(function (s) { s.classList.add("hl"); });
+      $("d1-" + f).textContent = d1vals[f];
+      await sleep(340);
+    }
+    await sleep(300);
+    $("d1letter").classList.remove("hidden");
+    await sleep(650);
+    $("d1reg").classList.remove("hidden");
+    this.textContent = "Gotowe ✓";
+    $("d1reset").classList.remove("hidden");
+    d1busy = false;
+  });
+  $("d1reset").addEventListener("click", function () {
+    if (d1busy) return;
+    document.querySelectorAll("#d1doc .hl").forEach(function (s) { s.classList.remove("hl"); });
+    d1fields.forEach(function (f) { $("d1-" + f).textContent = ""; });
+    $("d1letter").classList.add("hidden");
+    $("d1reg").classList.add("hidden");
+    this.classList.add("hidden");
+    var run = $("d1run");
+    run.disabled = false;
+    run.textContent = "Przetwórz dokument";
+  });
+
+  /* ============ DEMO 2: RAPORT ============ */
+  function addMsg(container, cls, whoHtml, bodyHtml) {
+    var div = document.createElement("div");
+    div.className = "msg " + cls;
+    div.innerHTML = (whoHtml ? '<span class="who">' + whoHtml + "</span>" : "") + bodyHtml;
+    container.appendChild(div);
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () { div.classList.add("show"); });
+    });
+    return div;
+  }
+  var d2busy = false;
+  $("d2run").addEventListener("click", async function () {
+    if (d2busy) return;
+    d2busy = true;
+    this.disabled = true;
+    var chat = $("d2chat");
+    chat.innerHTML = "";
+    addMsg(chat, "msg-field", "Brygada A · Paweł · 15:42",
+      "Skończone wytyczenie E-104 i E-105. Przy E-106 kolizja z drenem melioracyjnym, trzeba przesunąć stanowisko. Jutro od rana E-107.");
+    await sleep(900);
+    addMsg(chat, "msg-field", "Brygada A · Paweł · 15:43",
+      '<span class="attach">📷 IMG_2841.jpg</span><span class="attach">📷 IMG_2843.jpg</span>');
+    await sleep(900);
+    addMsg(chat, "msg-field", "Brygada B · Ola · 16:05",
+      'wysyłam obserwacje z dzisiaj <span class="attach">📄 tachi_B_0711.csv</span>');
+    await sleep(700);
+    var t = document.createElement("div");
+    t.className = "typing";
+    t.textContent = "asystent składa raport";
+    chat.appendChild(t);
+    await sleep(1500);
+    t.remove();
+    addMsg(chat, "msg-agent", "Asystent projektu · 16:06",
+      '<div class="report">' +
+      "<h4>RAPORT DZIENNY · 11.07.2026 · linia 400 kV, odcinek C</h4>" +
+      "<ul>" +
+      '<li><b>Wytyczono:</b> E-104, E-105 (bryg. A) — łącznie <span class="mono">34 / 61</span> stanowisk na odcinku</li>' +
+      '<li><b>Pomiary:</b> <span class="mono">214 pkt</span> (bryg. B) — dane przeszły kontrolę wstępną</li>' +
+      "<li><b>Przeszkody:</b> E-106 — kolizja z drenem melioracyjnym; foto w załączeniu; rekomendacja: zgłosić projektantowi przed czwartkiem</li>" +
+      "<li><b>Plan na jutro:</b> E-107 (bryg. A), stabilizacja osnowy odc. D (bryg. B)</li>" +
+      "</ul>" +
+      '<div class="dest">→ wysłano: inwestor (PDF wg szablonu) · kierownik projektu (e-mail) · archiwum projektu</div>' +
+      "</div>");
+    this.textContent = "Gotowe ✓";
+    $("d2reset").classList.remove("hidden");
+    d2busy = false;
+  });
+  $("d2reset").addEventListener("click", function () {
+    if (d2busy) return;
+    $("d2chat").innerHTML = "";
+    this.classList.add("hidden");
+    var run = $("d2run");
+    run.disabled = false;
+    run.textContent = "Odtwórz symulację";
+  });
+
+  /* ============ DEMO 3: QC ============ */
+  var d3items = [
+    ["f-bad", "duplikat", "Punkt <b class=\"mono\">E-093</b> zmierzony przez brygady A i C — rozbieżność położenia <b class=\"mono\">0,042 m</b>. Propozycja: zostawić pomiar o niższym RMS (bryg. A)."],
+    ["f-warn", "nazewnictwo", "Brygada B używa <span class=\"mono\">SL-104…SL-118</span>, reszta projektu <span class=\"mono\">E-…</span>. Przygotowano automatyczną mapę zmian nazw (15 punktów) — do zatwierdzenia."],
+    ["f-bad", "odchyłka", "Wysokość pkt <b class=\"mono\">E-117</b> odstaje o <b class=\"mono\">0,31 m</b> od modelu terenu. Prawdopodobna przyczyna: błędna wysokość celu (1,500 zamiast 1,800?)."],
+    ["f-warn", "kody", "<span class=\"mono\">12</span> punktów bez kodu. Na podstawie sąsiedztwa i szkicu zaproponowano kody — do zatwierdzenia jednym kliknięciem."],
+    ["f-ok", "format", "Układ współrzędnych i struktura zgodne dla 3/3 plików (<span class=\"mono\">PL-2000/7</span>). Kompletność względem harmonogramu dnia: 100%."]
+  ];
+  var d3busy = false;
+  $("d3run").addEventListener("click", async function () {
+    if (d3busy) return;
+    d3busy = true;
+    this.disabled = true;
+    this.textContent = "Analiza…";
+    var out = $("d3out");
+    out.innerHTML = "";
+    $("d3sum").classList.add("hidden");
+    var bar = $("d3bar");
+    bar.style.width = "0";
+    for (var i = 0; i < d3items.length; i++) {
+      bar.style.width = ((i + 1) / d3items.length) * 100 + "%";
+      await sleep(520);
+      var li = document.createElement("li");
+      li.className = d3items[i][0];
+      li.innerHTML = '<span class="fk">' + d3items[i][1] + "</span>" + d3items[i][2];
+      out.appendChild(li);
+      requestAnimationFrame(function () {
+        requestAnimationFrame(function () { out.lastElementChild.classList.add("show"); });
+      });
+    }
+    await sleep(400);
+    $("d3sum").classList.remove("hidden");
+    this.textContent = "Gotowe ✓";
+    $("d3reset").classList.remove("hidden");
+    d3busy = false;
+  });
+  $("d3reset").addEventListener("click", function () {
+    if (d3busy) return;
+    $("d3out").innerHTML = "";
+    $("d3sum").classList.add("hidden");
+    $("d3bar").style.width = "0";
+    this.classList.add("hidden");
+    var run = $("d3run");
+    run.disabled = false;
+    run.textContent = "Sprawdź dane z 3 brygad";
+  });
+
+  /* ============ DEMO 4: OPERAT ============ */
+  var d4data = {
+    grojec: {
+      src: "źródło: wytyczne PODGiK Grójec (03.2026) + historia uwag z 4 poprzednich operatów",
+      items: [
+        ["c-ok", "✓", "Sprawozdanie techniczne (PDF, podpis kwalifikowany kierownika prac)", ""],
+        ["c-ok", "✓", "Dziennik pomiarowy / surowe obserwacje", ""],
+        ["c-warn", "!", "Plik GML — walidacja schematem", "2 błędy atrybutów budynków (EGB_Budynek: brak „rodzajWgKST”) — poprawka przygotowana, do akceptacji"],
+        ["c-bad", "✗", "Poświadczenie zgłoszenia prac", "brak w komplecie — ośrodek w Grójcu odrzuca operat bez tego dokumentu (uwaga weryfikatora z 04.2026)"],
+        ["c-ok", "✓", "Wykazy współrzędnych — PL-2000 strefa 7", ""],
+        ["c-warn", "!", "Szkice polowe", "praktyka ośrodka od 2025: wymagane także dla punktów wznowionych — w komplecie brakuje 3 szkiców"]
+      ]
+    },
+    piaseczno: {
+      src: "źródło: wytyczne PODGiK Piaseczno (01.2026) + historia uwag z 7 poprzednich operatów",
+      items: [
+        ["c-ok", "✓", "Sprawozdanie techniczne", ""],
+        ["c-bad", "✗", "Mapa porównania z ewidencją", "ośrodek wymaga jej nawet przy braku zmian — częsta przyczyna zwrotów u tego weryfikatora"],
+        ["c-ok", "✓", "Plik GML — walidacja bez błędów", ""],
+        ["c-ok", "✓", "Wykazy współrzędnych — PL-2000 strefa 7", ""],
+        ["c-warn", "!", "Sposób złożenia", "tylko portal ośrodka; operat ma 214 MB, limit 200 MB — przygotowano podział na 2 paczki"]
+      ]
+    },
+    bialobrzegi: {
+      src: "źródło: wytyczne PODGiK Białobrzegi (11.2025) + historia uwag z 2 poprzednich operatów",
+      items: [
+        ["c-ok", "✓", "Sprawozdanie techniczne", ""],
+        ["c-ok", "✓", "Dziennik pomiarowy / surowe obserwacje", ""],
+        ["c-warn", "!", "Plik GML — wersja schematu", "ośrodek pracuje na starszej wersji — wymagany eksport zgodny ze schematem 2021; konwersja przygotowana"],
+        ["c-ok", "✓", "Wykazy współrzędnych — PL-2000 strefa 7", ""],
+        ["c-bad", "✗", "Wykaz zmian danych ewidencyjnych", "brak pliku — wymagany, bo operat obejmuje 6 działek z aktualizacją użytków"]
+      ]
+    }
+  };
+  $("d4run").addEventListener("click", function () {
+    var key = $("d4sel").value;
+    var data = d4data[key];
+    var out = $("d4out");
+    out.innerHTML = "";
+    data.items.forEach(function (it) {
+      var li = document.createElement("li");
+      li.className = it[0];
+      li.innerHTML = '<span class="ic">' + it[1] + "</span><div>" + it[2] +
+        (it[3] ? "<small>" + it[3] + "</small>" : "") + "</div>";
+      out.appendChild(li);
+    });
+    var src = $("d4src");
+    src.textContent = data.src;
+    src.classList.remove("hidden");
+  });
+
+  /* ============ DEMO 5: PYTANIA ============ */
+  var d5qa = [
+    ["Które działki w gminie Tarczyn nie mają jeszcze zgody?",
+     'W gminie Tarczyn zostało <b class="num">14 działek</b> bez podpisanej zgody: <span class="num">9</span> w negocjacjach, <span class="num">5</span> bez kontaktu z właścicielem. Najpilniejsze — na osi stanowisk E-112…E-118: <span class="mono">142/3</span> i <span class="mono">156/9</span> (obręb Przypki); właściciele czekają na poprawioną propozycję wynagrodzenia, <b>termin minął 3 dni temu</b>. Źródło: rejestr działek + korespondencja.'],
+    ["Ile stanowisk zostało do wytyczenia na odcinku C?",
+     'Wytyczono <b class="num">34 z 61</b> stanowisk (56%). Przy obecnym tempie brygady A (<span class="num">2,1</span> stanowiska/dzień) koniec ≈ <b class="num">29.07</b>. Ryzyka: <span class="mono">E-106</span> (kolizja z drenem — czeka na projektanta) oraz <span class="mono">E-121…E-123</span> (brak zgody na wejście w teren, sprawa u pełnomocnika). Źródło: harmonogram + dane z kontrolerów.'],
+    ["Jaka korespondencja czeka na odpowiedź?",
+     '<b class="num">7 spraw</b> przeterminowanych: 4 pisma do właścicieli (najstarsze <span class="num">12 dni</span>), 2 uzgodnienia branżowe (usunięcie kolizji nn), 1 odpowiedź do PODGiK w Grójcu na uwagi weryfikatora — <b>termin: poniedziałek</b>. Projekty odpowiedzi do 5 spraw są gotowe do przejrzenia. Źródło: skrzynka projektu + rejestr terminów.']
+  ];
+  var d5busy = false;
+  document.querySelectorAll("#d5btns .qbtn").forEach(function (btn) {
+    btn.addEventListener("click", async function () {
+      if (d5busy || btn.disabled) return;
+      d5busy = true;
+      btn.disabled = true;
+      var qa = d5qa[parseInt(btn.dataset.q, 10)];
+      var chat = $("d5chat");
+      addMsg(chat, "msg-user", "Ty", qa[0]);
+      await sleep(500);
+      var t = document.createElement("div");
+      t.className = "typing";
+      t.textContent = "asystent szuka w danych projektu";
+      chat.appendChild(t);
+      await sleep(1200);
+      t.remove();
+      addMsg(chat, "msg-agent", "Asystent projektu", '<div class="answer">' + qa[1] + "</div>");
+      $("d5reset").classList.remove("hidden");
+      d5busy = false;
+    });
+  });
+  $("d5reset").addEventListener("click", function () {
+    if (d5busy) return;
+    $("d5chat").innerHTML = "";
+    document.querySelectorAll("#d5btns .qbtn").forEach(function (b) { b.disabled = false; });
+    this.classList.add("hidden");
+  });
+})();
+</script>
+</body>
+</html>

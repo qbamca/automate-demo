@@ -1,0 +1,1143 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rzeczoznawca × AI — demo możliwości przy wycenie nieruchomości</title>
+<style>
+  /* ============ TOKENY ============ */
+  :root {
+    --bg: #F5F6F2;
+    --bg-raise: #FFFFFF;
+    --bg-inset: #ECEEE7;
+    --ink: #222824;
+    --ink-soft: #5B635D;
+    --line: #D7DBD0;
+    --line-soft: #E5E8DF;
+    --accent: #176E4B;
+    --accent-soft: #DEEFE5;
+    --accent-ink: #FFFFFF;
+    --data: #8A6D2F;
+    --ok: #2B7A3D;
+    --ok-soft: #E1F0E3;
+    --warn: #94690A;
+    --warn-soft: #F7EDD3;
+    --bad: #B3261E;
+    --bad-soft: #F8E2E0;
+    --shadow: 0 1px 2px rgba(34,40,36,.06), 0 8px 24px -12px rgba(34,40,36,.14);
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", "JetBrains Mono", Consolas, "Liberation Mono", monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --radius: 6px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #151915;
+      --bg-raise: #1C221D;
+      --bg-inset: #181E19;
+      --ink: #E5E8E2;
+      --ink-soft: #99A29B;
+      --line: #2F3830;
+      --line-soft: #252D26;
+      --accent: #46B97C;
+      --accent-soft: #1B3226;
+      --accent-ink: #0C1810;
+      --data: #D2B36A;
+      --ok: #63BE74;
+      --ok-soft: #1D2E20;
+      --warn: #DFAE44;
+      --warn-soft: #322A16;
+      --bad: #E5756E;
+      --bad-soft: #362020;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 28px -12px rgba(0,0,0,.5);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #F5F6F2; --bg-raise: #FFFFFF; --bg-inset: #ECEEE7;
+    --ink: #222824; --ink-soft: #5B635D; --line: #D7DBD0; --line-soft: #E5E8DF;
+    --accent: #176E4B; --accent-soft: #DEEFE5; --accent-ink: #FFFFFF; --data: #8A6D2F;
+    --ok: #2B7A3D; --ok-soft: #E1F0E3; --warn: #94690A; --warn-soft: #F7EDD3;
+    --bad: #B3261E; --bad-soft: #F8E2E0;
+    --shadow: 0 1px 2px rgba(34,40,36,.06), 0 8px 24px -12px rgba(34,40,36,.14);
+  }
+  :root[data-theme="dark"] {
+    --bg: #151915; --bg-raise: #1C221D; --bg-inset: #181E19;
+    --ink: #E5E8E2; --ink-soft: #99A29B; --line: #2F3830; --line-soft: #252D26;
+    --accent: #46B97C; --accent-soft: #1B3226; --accent-ink: #0C1810; --data: #D2B36A;
+    --ok: #63BE74; --ok-soft: #1D2E20; --warn: #DFAE44; --warn-soft: #322A16;
+    --bad: #E5756E; --bad-soft: #362020;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 28px -12px rgba(0,0,0,.5);
+  }
+
+  /* ============ BAZA ============ */
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  body::before {
+    content: "";
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background:
+      repeating-linear-gradient(to right, transparent 0 63px, var(--line-soft) 63px 64px),
+      repeating-linear-gradient(to bottom, transparent 0 63px, var(--line-soft) 63px 64px);
+    opacity: .5;
+    mask-image: linear-gradient(to bottom, rgba(0,0,0,.9), rgba(0,0,0,.25) 40%, rgba(0,0,0,.15));
+    -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,.9), rgba(0,0,0,.25) 40%, rgba(0,0,0,.15));
+  }
+  main { position: relative; z-index: 1; max-width: 1060px; margin: 0 auto; padding: 0 20px; }
+  h1, h2, h3 { line-height: 1.2; text-wrap: balance; margin: 0 0 .5em; }
+  h1 { font-size: clamp(1.9rem, 4.6vw, 3.1rem); font-weight: 800; letter-spacing: -0.02em; }
+  h2 { font-size: clamp(1.4rem, 3vw, 2rem); font-weight: 750; letter-spacing: -0.015em; }
+  h3 { font-size: 1.08rem; font-weight: 700; }
+  p { margin: 0 0 1em; max-width: 68ch; }
+  a { color: var(--accent); }
+  section { padding: 56px 0 8px; }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: .74rem;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 14px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .eyebrow::after { content: ""; flex: 0 0 42px; height: 1px; background: var(--accent); opacity: .5; }
+  .lead { font-size: 1.08rem; color: var(--ink-soft); }
+  .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .hidden { display: none !important; }
+
+  /* ============ NAWIGACJA ZAKŁADEK ============ */
+  .topnav {
+    position: sticky; top: 0; z-index: 10;
+    display: flex; justify-content: space-between; align-items: center; gap: 16px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--line);
+    padding: 12px 0;
+    margin: 0 0 4px;
+  }
+  .topnav .brand { font-family: var(--mono); font-size: .78rem; letter-spacing: .14em; font-weight: 600; }
+  .topnav .brand em { color: var(--accent); font-style: normal; }
+  .tablinks { display: flex; gap: 6px; }
+  .tab {
+    font: 600 .84rem/1 var(--sans); text-decoration: none; color: var(--ink-soft);
+    padding: 9px 14px; border-radius: 999px; border: 1px solid transparent;
+  }
+  .tab:hover { color: var(--ink); }
+  .tab.active { color: var(--accent); background: var(--accent-soft); }
+
+  /* ============ HERO ============ */
+  .hero { padding: 64px 0 24px; }
+  .hero-top {
+    display: flex; justify-content: space-between; align-items: baseline;
+    gap: 16px; flex-wrap: wrap;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 10px; margin-bottom: 40px;
+    font-family: var(--mono); font-size: .74rem; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--ink-soft);
+  }
+  .hero-top strong { color: var(--ink); font-weight: 600; }
+  .hero p.lead { font-size: 1.15rem; margin-top: 18px; }
+  .hero-cta { display: flex; gap: 12px; flex-wrap: wrap; margin: 26px 0 34px; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    font: 600 .92rem/1 var(--sans);
+    padding: 12px 20px; border-radius: var(--radius);
+    border: 1px solid var(--line); background: var(--bg-raise); color: var(--ink);
+    cursor: pointer; text-decoration: none;
+    transition: transform .12s ease, box-shadow .12s ease;
+  }
+  .btn:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
+  .btn:focus-visible, button:focus-visible, select:focus-visible {
+    outline: 2px solid var(--accent); outline-offset: 2px;
+  }
+  .btn-primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  .btn[disabled] { opacity: .55; cursor: default; transform: none; box-shadow: none; }
+  #heroCanvas {
+    width: 100%; height: 240px; display: block;
+    border: 1px solid var(--line); border-radius: var(--radius);
+    background: var(--bg-raise);
+  }
+  .hero-canvas-caption {
+    font-family: var(--mono); font-size: .72rem; color: var(--ink-soft);
+    margin-top: 8px; letter-spacing: .04em;
+  }
+
+  /* ============ KARTY PAIN POINTÓW ============ */
+  .grid-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 16px; margin-top: 28px; }
+  .card {
+    background: var(--bg-raise); border: 1px solid var(--line);
+    border-radius: var(--radius); padding: 22px 22px 14px;
+  }
+  .card h3 { margin-bottom: .45em; }
+  .card p { color: var(--ink-soft); font-size: .93rem; margin-bottom: .4em; }
+  .card .tag {
+    font-family: var(--mono); font-size: .68rem; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--data); display: block; margin-bottom: 10px;
+  }
+
+  /* ============ NARZĘDZIA (czego nie ruszamy) ============ */
+  .tools { background: var(--bg-inset); border: 1px solid var(--line); border-radius: var(--radius); padding: 26px 26px 20px; margin-top: 24px; }
+  .tool-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+  .tool-chips span {
+    font-family: var(--mono); font-size: .78rem;
+    border: 1px solid var(--line); background: var(--bg-raise);
+    border-radius: 999px; padding: 5px 12px; color: var(--ink-soft);
+  }
+  .tools .oath {
+    margin-top: 18px; padding: 14px 16px;
+    border-left: 3px solid var(--accent);
+    background: var(--bg-raise); border-radius: 3px;
+    font-size: .92rem; color: var(--ink-soft);
+  }
+  .tools .oath b { color: var(--ink); }
+
+  /* ============ SCENARIUSZE ============ */
+  .demo {
+    background: var(--bg-raise); border: 1px solid var(--line);
+    border-radius: var(--radius); box-shadow: var(--shadow);
+    padding: 26px; margin-top: 30px;
+  }
+  .demo-head { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+  .demo-num {
+    font-family: var(--mono); font-size: .74rem; letter-spacing: .12em;
+    color: var(--accent); text-transform: uppercase; white-space: nowrap;
+  }
+  .demo > .pain { color: var(--ink-soft); font-size: .95rem; margin: 6px 0 18px; }
+  .demo-stage {
+    border: 1px solid var(--line); border-radius: var(--radius);
+    background: var(--bg-inset); padding: 18px;
+  }
+  .demo-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+  .demo-note {
+    font-size: .82rem; color: var(--ink-soft); margin: 14px 0 0;
+    padding-top: 12px; border-top: 1px dashed var(--line);
+  }
+  .demo-note b { color: var(--accent); }
+
+  /* chipy statusów */
+  .chip {
+    display: inline-block; font: 600 .72rem/1 var(--mono);
+    letter-spacing: .04em; padding: 4px 9px; border-radius: 999px; white-space: nowrap;
+  }
+  .chip-ok   { background: var(--ok-soft);   color: var(--ok); }
+  .chip-warn { background: var(--warn-soft); color: var(--warn); }
+  .chip-bad  { background: var(--bad-soft);  color: var(--bad); }
+
+  /* --- Demo 1: akt notarialny --- */
+  .d1-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  @media (max-width: 780px) { .d1-grid { grid-template-columns: 1fr; } }
+  .doc {
+    background: var(--bg-raise); border: 1px solid var(--line);
+    padding: 18px; font-family: var(--mono); font-size: .78rem; line-height: 1.7;
+    color: var(--ink-soft); border-radius: 3px; position: relative;
+  }
+  .doc-title { text-align: center; color: var(--ink); font-weight: 700; letter-spacing: .08em; margin-bottom: 10px; }
+  .doc .hl { background: var(--accent-soft); color: var(--accent); border-radius: 2px; padding: 0 2px; transition: background .3s; }
+  .doc-label {
+    position: absolute; top: -10px; left: 12px;
+    background: var(--bg-inset); padding: 0 8px;
+    font-size: .66rem; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-soft);
+  }
+  table.extract { width: 100%; border-collapse: collapse; font-size: .84rem; background: var(--bg-raise); border: 1px solid var(--line); border-radius: 3px; }
+  table.extract th, table.extract td { text-align: left; padding: 7px 11px; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
+  table.extract th { font-family: var(--mono); font-weight: 500; font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-soft); width: 38%; }
+  table.extract td { font-family: var(--mono); color: var(--ink); }
+  table.extract td:empty::before { content: "—"; color: var(--line); }
+  .letter {
+    margin-top: 14px; background: var(--bg-raise); border: 1px solid var(--line);
+    border-left: 3px solid var(--accent); padding: 14px 16px; font-size: .85rem;
+    color: var(--ink-soft); border-radius: 3px;
+  }
+  .letter .mono { font-size: .72rem; color: var(--accent); text-transform: uppercase; letter-spacing: .08em; display: block; margin-bottom: 8px; }
+  .register { overflow-x: auto; }
+  table.register { width: 100%; border-collapse: collapse; font-size: .84rem; margin-top: 10px; }
+  table.register th, table.register td { text-align: left; padding: 8px 11px; border-bottom: 1px solid var(--line-soft); }
+  table.register th { font-family: var(--mono); font-size: .7rem; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-soft); font-weight: 500; }
+  table.register td:first-child { font-family: var(--mono); }
+  table.register td.num { font-family: var(--mono); }
+  .reg-summary { font-family: var(--mono); font-size: .76rem; color: var(--ink-soft); margin-top: 10px; }
+  .reg-summary b { color: var(--accent); font-weight: 600; }
+
+  /* --- listy ustaleń (KW, kontrola operatu) --- */
+  .files { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+  .attach { display: inline-flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: .72rem; background: var(--bg-inset); border: 1px solid var(--line); border-radius: 4px; padding: 3px 8px; margin: 2px 4px 0 0; }
+  .demo-stage .attach { background: var(--bg-raise); }
+  .scanbar { height: 4px; background: var(--line-soft); border-radius: 2px; overflow: hidden; margin: 6px 0 14px; }
+  .scanbar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .5s ease; }
+  .findings { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  .findings li {
+    background: var(--bg-raise); border: 1px solid var(--line); border-radius: 4px;
+    padding: 10px 13px 10px 16px; font-size: .86rem; position: relative;
+    opacity: 0; transform: translateY(5px); transition: opacity .3s, transform .3s;
+  }
+  .findings li.show { opacity: 1; transform: none; }
+  .findings li::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; border-radius: 4px 0 0 4px; }
+  .findings li.f-bad::before  { background: var(--bad); }
+  .findings li.f-warn::before { background: var(--warn); }
+  .findings li.f-ok::before   { background: var(--ok); }
+  .findings .fk { font-family: var(--mono); font-size: .68rem; text-transform: uppercase; letter-spacing: .07em; display: block; margin-bottom: 3px; }
+  .f-bad .fk { color: var(--bad); } .f-warn .fk { color: var(--warn); } .f-ok .fk { color: var(--ok); }
+  @media (prefers-reduced-motion: reduce) { .findings li { transition: none; transform: none; } }
+
+  /* --- Demo 3: MPZP --- */
+  .d3-controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+  select {
+    font: 500 .9rem var(--sans); color: var(--ink);
+    background: var(--bg-raise); border: 1px solid var(--line);
+    border-radius: var(--radius); padding: 10px 14px; cursor: pointer;
+    max-width: 100%;
+  }
+  .checklist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  .checklist li {
+    display: flex; gap: 12px; align-items: flex-start;
+    background: var(--bg-raise); border: 1px solid var(--line); border-radius: 4px;
+    padding: 9px 13px; font-size: .87rem;
+  }
+  .checklist .ic { font-family: var(--mono); font-weight: 700; flex: 0 0 20px; text-align: center; }
+  .checklist li.c-ok .ic { color: var(--ok); }
+  .checklist li.c-warn .ic { color: var(--warn); }
+  .checklist li.c-bad .ic { color: var(--bad); }
+  .checklist small { display: block; color: var(--ink-soft); font-size: .78rem; }
+  .src-line { font-family: var(--mono); font-size: .72rem; color: var(--ink-soft); margin-top: 12px; }
+
+  /* --- Demo 5: czat --- */
+  .chat { display: flex; flex-direction: column; gap: 10px; min-height: 60px; }
+  .msg { max-width: 88%; padding: 10px 14px; border-radius: 10px; font-size: .88rem; opacity: 0; transform: translateY(6px); transition: opacity .35s, transform .35s; }
+  .msg.show { opacity: 1; transform: none; }
+  .msg .who { font-family: var(--mono); font-size: .68rem; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-soft); display: block; margin-bottom: 4px; }
+  .msg-user { align-self: flex-start; background: var(--bg-raise); border: 1px solid var(--line); }
+  .msg-agent { align-self: flex-end; background: var(--accent-soft); border: 1px solid transparent; }
+  .msg-agent .who { color: var(--accent); }
+  .typing { align-self: flex-end; font-family: var(--mono); font-size: .74rem; color: var(--ink-soft); padding: 4px 8px; }
+  .typing::after { content: "▌"; animation: blink 1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) {
+    .msg { transition: none; transform: none; }
+    .typing::after { animation: none; }
+  }
+  .qbtns { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+  .qbtn {
+    font: 500 .84rem var(--sans); color: var(--ink);
+    background: var(--bg-raise); border: 1px solid var(--line);
+    border-radius: 999px; padding: 8px 15px; cursor: pointer; text-align: left;
+  }
+  .qbtn:hover:not([disabled]) { border-color: var(--accent); color: var(--accent); }
+  .qbtn[disabled] { opacity: .45; cursor: default; }
+  .answer b { color: var(--accent); }
+  .answer .num { font-family: var(--mono); font-weight: 600; }
+
+  /* ============ ZAJAWKA KATALOGU ============ */
+  .more-teaser {
+    margin-top: 30px; padding: 22px 26px;
+    border: 1px dashed var(--accent); border-radius: var(--radius);
+    background: var(--accent-soft);
+    display: flex; justify-content: space-between; align-items: center; gap: 18px; flex-wrap: wrap;
+  }
+  .more-teaser p { margin: 0; max-width: 58ch; font-size: .95rem; }
+  .more-teaser .mono-small { font-family: var(--mono); font-size: .7rem; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); display: block; margin-bottom: 4px; }
+
+  /* ============ KATALOG SCENARIUSZY (zakładka 2) ============ */
+  .cat-group { margin-top: 44px; }
+  .cat-group > h3 {
+    font-size: 1.2rem;
+    display: flex; align-items: baseline; gap: 12px;
+  }
+  .cat-group > h3 .mono { font-size: .72rem; color: var(--accent); letter-spacing: .1em; text-transform: uppercase; font-weight: 600; }
+  .cat-group > p { color: var(--ink-soft); font-size: .93rem; margin-bottom: 16px; }
+  details.acc {
+    background: var(--bg-raise); border: 1px solid var(--line);
+    border-radius: var(--radius); margin-bottom: 8px;
+  }
+  details.acc summary {
+    cursor: pointer; padding: 14px 18px;
+    display: flex; gap: 12px; align-items: baseline;
+    list-style: none; font-weight: 600; font-size: .95rem;
+  }
+  details.acc summary::-webkit-details-marker { display: none; }
+  details.acc summary::after {
+    content: "+"; margin-left: auto; flex: 0 0 auto;
+    font-family: var(--mono); font-size: 1rem; color: var(--accent);
+  }
+  details.acc[open] summary::after { content: "−"; }
+  details.acc[open] summary { border-bottom: 1px dashed var(--line); }
+  .acc-body { padding: 14px 18px 16px; font-size: .92rem; color: var(--ink-soft); }
+  .acc-body p { margin: 0 0 10px; max-width: none; }
+  .acc-body p:last-child { margin-bottom: 0; }
+  .acc-body b.k {
+    font-family: var(--mono); font-size: .7rem; letter-spacing: .08em;
+    text-transform: uppercase; font-weight: 600; display: block; margin-bottom: 2px;
+  }
+  .acc-body .k-problem { color: var(--bad); }
+  .acc-body .k-mozliwosc { color: var(--ok); }
+
+  /* ============ DLACZEGO TANIO ============ */
+  .why-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-top: 26px; }
+  .why-cards .card { border-top: 3px solid var(--accent); }
+
+  /* ============ CTA / STOPKA ============ */
+  .cta {
+    margin: 64px 0 0; padding: 44px 36px;
+    background: var(--ink); color: var(--bg); border-radius: var(--radius);
+    text-align: left;
+  }
+  :root[data-theme="dark"] .cta { background: var(--bg-raise); color: var(--ink); border: 1px solid var(--line); }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .cta { background: var(--bg-raise); color: var(--ink); border: 1px solid var(--line); } }
+  .cta h2 { color: inherit; }
+  .cta p { opacity: .85; }
+  .cta .mono-line { font-family: var(--mono); font-size: .76rem; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); margin-bottom: 14px; }
+  footer {
+    margin: 40px 0 0; padding: 26px 0 40px;
+    border-top: 1px solid var(--line);
+    font-size: .8rem; color: var(--ink-soft);
+  }
+  footer .mono { font-size: .7rem; letter-spacing: .06em; }
+</style>
+</head>
+<body>
+<main>
+
+  <nav class="topnav" aria-label="Zakładki">
+    <span class="brand">WYCENA <em>×</em> AI</span>
+    <div class="tablinks">
+      <a href="#start" class="tab" data-view="start">Start</a>
+      <a href="#wiecej" class="tab" data-view="wiecej">Więcej scenariuszy</a>
+    </div>
+  </nav>
+
+<div id="view-start">
+  <!-- ============ HERO ============ -->
+  <header class="hero">
+    <div class="hero-top">
+      <span><strong>DEMO MOŻLIWOŚCI</strong> · LLM + automatyzacja</span>
+      <span>branża: <strong>wycena nieruchomości</strong> · rzeczoznawca majątkowy</span>
+    </div>
+    <h1>Wartość szacujesz Ty.<br>Papiery niech składają się same.</h1>
+    <p class="lead">W operacie liczy się Twój osąd — ale zanim do niego dojdziesz, czeka Cię RCN w pięciu formatach, akty notarialne w skanach, cztery działy każdej księgi wieczystej i sześćdziesiąt stron uchwały planistycznej. To demo pokazuje, jaką część tej drogi mogą przejść za Ciebie modele językowe i automatyzacja. Dane poniżej są fikcyjne. Scenariusze — jak najbardziej realne.</p>
+    <div class="hero-cta">
+      <a class="btn btn-primary" href="#scenariusze">Zobacz 5 scenariuszy</a>
+      <a class="btn" href="#rozmowa">Umów rozmowę</a>
+    </div>
+    <canvas id="heroCanvas" aria-label="Schematyczny wykres rozrzutu cen transakcyjnych w czasie z linią trendu i odrzuconymi transakcjami nierynkowymi" role="img"></canvas>
+    <p class="hero-canvas-caption">szkic poglądowy · rynek lokalny, lokale 40–60 m² · <span style="color:var(--data)">●</span> transakcje z RCN &nbsp;<span style="color:var(--bad)">●</span> odrzucone (nierynkowe) &nbsp;<span style="color:var(--accent)">—</span> trend do korekty czasowej</p>
+  </header>
+
+  <!-- ============ PAIN POINTY ============ -->
+  <section id="problemy">
+    <p class="eyebrow">Gdzie naprawdę ucieka czas</p>
+    <h2>Sześć rzeczy, które znasz aż za dobrze</h2>
+    <p class="lead">Żadna nie dotyczy samego szacowania wartości. Wszystkie dotyczą drogi, którą trzeba przejść, zanim w ogóle można zacząć szacować.</p>
+    <div class="grid-cards">
+      <div class="card">
+        <span class="tag">RCN · dane transakcyjne</span>
+        <h3>RCN w pięciu formatach</h3>
+        <p>Każde starostwo wydaje dane po swojemu: PDF, XLS, czasem papier. Zanim powstanie baza porównawcza, trzeba to przepisać, ujednolicić atrybuty i ręcznie odsiać transakcje nierynkowe — rodzinne, komornicze, udziałowe.</p>
+      </div>
+      <div class="card">
+        <span class="tag">akty · KW</span>
+        <h3>Akty i księgi do przeczesania</h3>
+        <p>Akt notarialny to skan do przepisania. Księga wieczysta to cztery działy do przeczytania — a służebność albo roszczenie z działu III potrafi wywrócić wycenę. Przy portfelu to setki dokumentów.</p>
+      </div>
+      <div class="card">
+        <span class="tag">MPZP · studium</span>
+        <h3>Sześćdziesiąt stron dla jednego parametru</h3>
+        <p>Przeznaczenie, wskaźniki, linie zabudowy, strefy — rozsiane po tekście uchwały i rysunku planu. Dla jednej działki trzeba przeczytać dokument pisany językiem prawnym, w którym łatwo coś przeoczyć.</p>
+      </div>
+      <div class="card">
+        <span class="tag">operat · dokument</span>
+        <h3>Operat-składak</h3>
+        <p>Duża część operatu to powtarzalne opisy: stan prawny, charakterystyka rynku, metodologia. Skleja się je z poprzednich operatów — a kopiuj-wklej mści się cudzym adresem na stronie 12 i starą datą w klauzuli.</p>
+      </div>
+      <div class="card">
+        <span class="tag">banki · weryfikacja</span>
+        <h3>Każdy bank gra po swojemu</h3>
+        <p>Inne checklisty, inne załączniki, inny szablon. Uwagi weryfikatora wracają po tygodniach i każdą trzeba ręcznie sparować z treścią operatu, poprawić i opisać.</p>
+      </div>
+      <div class="card">
+        <span class="tag">portfel · terminy</span>
+        <h3>Portfele i pilnowanie ważności</h3>
+        <p>Setki wycen w portfelu, każda z własnym terminem ważności, klauzulą aktualności i klientem, który przypomni sobie za późno. Rejestr żyje w Excelu i w czyjejś głowie.</p>
+      </div>
+    </div>
+
+    <div class="tools">
+      <h3>Twoje źródła i warsztat zostają na miejscu</h3>
+      <p style="color:var(--ink-soft); font-size:.93rem;">Bazy transakcji, rejestry publiczne i Twoja metodologia to fundament — nie zastępujemy ich. Nie budujemy też kolejnego AVM, bo automatycznych modeli banki mają dość. Możliwości pokazane niżej żyją <em>pomiędzy</em> źródłami a operatem: w dokumentach, wyciągach, kontroli spójności i pilnowaniu terminów.</p>
+      <div class="tool-chips">
+        <span>RCN / RCiWN</span><span>EKW</span><span>AMRON</span><span>Cenatorium</span><span>urban.one</span><span>Geoportal</span><span>EGiB</span><span>QGIS</span><span>Excel</span>
+      </div>
+      <p class="oath"><b>Jedno ważne zastrzeżenie:</b> określenie wartości pozostaje czynnością zawodową rzeczoznawcy. Wszystko poniżej przygotowuje materiał i pilnuje spójności — opinia, podpis i odpowiedzialność są Twoje.</p>
+    </div>
+  </section>
+
+  <!-- ============ SCENARIUSZE ============ -->
+  <section id="scenariusze">
+    <p class="eyebrow">Klikalne symulacje</p>
+    <h2>Pięć scenariuszy do przeklikania</h2>
+    <p class="lead">Każda symulacja pokazuje <em>klasę możliwości</em>, nie gotowy produkt — bo sensowne narzędzie musi być uszyte pod Twój warsztat, Twoje rynki i Twoich zleceniodawców.</p>
+
+    <!-- ===== DEMO 1: AKT NOTARIALNY ===== -->
+    <article class="demo" id="demo1">
+      <div class="demo-head">
+        <span class="demo-num">Scenariusz 1 / 5</span>
+        <h3>Asystent bazy transakcyjnej</h3>
+      </div>
+      <p class="pain">Pain point: skan aktu notarialnego → ręczne przepisywanie do bazy → ręczna ocena, czy transakcja jest rynkowa. Razy każda nowa paczka z RCN.</p>
+      <div class="demo-stage">
+        <div class="d1-grid">
+          <div class="doc" id="d1doc">
+            <span class="doc-label">skan · PDF</span>
+            <div class="doc-title">AKT NOTARIALNY</div>
+            Repertorium A nr <span data-f="rep">4821/2026</span><br>
+            dnia <span data-f="data">16 czerwca 2026 r.</span><br>
+            §1. Stawający ad 1 oświadcza, że sprzedaje, a stawający ad 2 kupuje<br>
+            <span data-f="rodz">lokal mieszkalny nr 7</span> położony w budynku przy ul. Bukowej 12 w Piasecznie,<br>
+            o pow. użytkowej <span data-f="pow">54,30 m²</span>,<br>
+            KW nr <span data-f="kw">WA5M/00312876/2</span>,<br>
+            wraz z udziałem <span data-f="udz">543/24100</span> w nieruchomości wspólnej,<br>
+            §2. …za cenę <span data-f="cena">612 000,00 zł</span><br>
+            §3. Strony oświadczają, że nie pozostają w stosunku pokrewieństwa…
+          </div>
+          <div>
+            <table class="extract" aria-label="Dane wyciągnięte z aktu">
+              <tr><th>Data transakcji</th><td id="d1-data"></td></tr>
+              <tr><th>Przedmiot</th><td id="d1-rodz"></td></tr>
+              <tr><th>Pow. użytkowa</th><td id="d1-pow"></td></tr>
+              <tr><th>Cena</th><td id="d1-cena"></td></tr>
+              <tr><th>Cena jedn.</th><td id="d1-jedn"></td></tr>
+              <tr><th>KW / udział</th><td id="d1-kw"></td></tr>
+            </table>
+            <div class="letter hidden" id="d1letter">
+              <span class="mono">ocena rynkowości · automatyczna, do weryfikacji</span>
+              Cena jednostkowa <b class="mono" style="display:inline; text-transform:none; letter-spacing:0;">11 271 zł/m²</b> mieści się w przedziale rynku lokalnego (mediana 11 380 zł/m², n = 87). Brak pokrewieństwa stron, brak sprzedaży udziału, brak trybu egzekucyjnego. <b>Kwalifikuje się do bazy porównawczej.</b>
+            </div>
+          </div>
+        </div>
+        <div class="register hidden" id="d1reg">
+          <table class="register" aria-label="Fragment bazy transakcji porównawczych">
+            <tr><th>Adres</th><th class="num">Pow.</th><th class="num">zł/m²</th><th>Status</th></tr>
+            <tr><td>Bukowa 12/7</td><td class="num">54,3 m²</td><td class="num">11 271</td><td><span class="chip chip-ok">przyjęta</span></td></tr>
+            <tr><td>Dębowa 3/12</td><td class="num">61,0 m²</td><td class="num">10 950</td><td><span class="chip chip-ok">przyjęta</span></td></tr>
+            <tr><td>Lipowa 8/2</td><td class="num">48,5 m²</td><td class="num">6 420</td><td><span class="chip chip-bad">odrzucona · I gr. podatkowa</span></td></tr>
+            <tr><td>Grabowa 1/9</td><td class="num">57,2 m²</td><td class="num">11 640</td><td><span class="chip chip-warn">do wyjaśnienia · m. postojowe w cenie?</span></td></tr>
+          </table>
+          <p class="reg-summary">baza: <b>1 118 transakcji</b> · 62 nowe w tym miesiącu · 9 odrzuconych automatycznie z uzasadnieniem · atrybuty ujednolicone</p>
+        </div>
+      </div>
+      <div class="demo-actions">
+        <button class="btn btn-primary" id="d1run">Przetwórz akt</button>
+        <button class="btn hidden" id="d1reset">Od nowa</button>
+      </div>
+      <p class="demo-note"><b>Klasa możliwości:</b> ekstrakcja danych ze skanów aktów i wypisów RCN (niezależnie od formatu starostwa), automatyczna baza porównawcza z ujednoliconymi atrybutami i flagowaniem transakcji nierynkowych — z uzasadnieniem, do Twojej decyzji.</p>
+    </article>
+
+    <!-- ===== DEMO 2: KSIĘGA WIECZYSTA ===== -->
+    <article class="demo" id="demo2">
+      <div class="demo-head">
+        <span class="demo-num">Scenariusz 2 / 5</span>
+        <h3>Czytnik ksiąg wieczystych</h3>
+      </div>
+      <p class="pain">Pain point: cztery działy do przeczytania na każdą nieruchomość — a jedno przeoczone roszczenie w dziale III potrafi wywrócić wycenę.</p>
+      <div class="demo-stage">
+        <div class="files">
+          <span class="attach">📖 KW WA1M/00234567/8 · 4 działy · 31 wpisów</span>
+        </div>
+        <div class="scanbar" aria-hidden="true"><i id="d2bar"></i></div>
+        <ul class="findings" id="d2out" aria-live="polite"></ul>
+        <p class="reg-summary hidden" id="d2sum">księga przeczytana w <b>6 s</b> · przy portfelu 240 KW to różnica: <b>tydzień vs godzina</b> — i żadnego przeoczonego wpisu</p>
+      </div>
+      <div class="demo-actions">
+        <button class="btn btn-primary" id="d2run">Przeanalizuj księgę</button>
+        <button class="btn hidden" id="d2reset">Od nowa</button>
+      </div>
+      <p class="demo-note"><b>Klasa możliwości:</b> automatyczne czytanie treści KW — pojedynczo albo setkami dla portfela — z tabelą obciążeń, ryzyk i rozbieżności względem EGiB. Każde ustalenie z odniesieniem do konkretnego wpisu, do Twojej weryfikacji.</p>
+    </article>
+
+    <!-- ===== DEMO 3: MPZP ===== -->
+    <article class="demo" id="demo3">
+      <div class="demo-head">
+        <span class="demo-num">Scenariusz 3 / 5</span>
+        <h3>Wyciąg z planu miejscowego</h3>
+      </div>
+      <p class="pain">Pain point: dla jednej działki trzeba przeczytać kilkadziesiąt stron uchwały i rysunek planu. Wybierz działkę:</p>
+      <div class="demo-stage">
+        <div class="d3-controls">
+          <label for="d3sel" style="font-size:.9rem; font-weight:600;">Działka:</label>
+          <select id="d3sel">
+            <option value="a">dz. 142/8, obr. 0012 — Piaseczno</option>
+            <option value="b">dz. 67/2, obr. Czersk — Góra Kalwaria</option>
+            <option value="c">dz. 310/4, obr. 0003 — Konstancin-Jeziorna</option>
+          </select>
+          <button class="btn btn-primary" id="d3run">Zrób wyciąg z planu</button>
+        </div>
+        <ul class="checklist" id="d3out" aria-live="polite"></ul>
+        <p class="src-line hidden" id="d3src"></p>
+      </div>
+      <p class="demo-note"><b>Klasa możliwości:</b> automatyczne wyciągi z MPZP i studium — przeznaczenie, wskaźniki, strefy, ograniczenia — z odesłaniem do konkretnego paragrafu uchwały. Dla jednej działki albo dla całego portfela naraz.</p>
+    </article>
+
+    <!-- ===== DEMO 4: KONTROLA OPERATU ===== -->
+    <article class="demo" id="demo4">
+      <div class="demo-head">
+        <span class="demo-num">Scenariusz 4 / 5</span>
+        <h3>Kontroler operatu przed wysyłką</h3>
+      </div>
+      <p class="pain">Pain point: kopiuj-wklej z poprzedniego operatu mści się cudzym adresem, starą datą i niezgodną powierzchnią — a znajduje to klient albo weryfikator banku.</p>
+      <div class="demo-stage">
+        <div class="files">
+          <span class="attach">📄 operat_Bukowa12m7.docx · 84 strony · 11 załączników</span>
+        </div>
+        <div class="scanbar" aria-hidden="true"><i id="d4bar"></i></div>
+        <ul class="findings" id="d4out" aria-live="polite"></ul>
+        <p class="reg-summary hidden" id="d4sum">kontrola: <b>84 strony w 14 s</b> · wpadki złapane <b>przed</b> klientem, nie przez klienta</p>
+      </div>
+      <div class="demo-actions">
+        <button class="btn btn-primary" id="d4run">Sprawdź operat</button>
+        <button class="btn hidden" id="d4reset">Od nowa</button>
+      </div>
+      <p class="demo-note"><b>Klasa możliwości:</b> automatyczna kontrola spójności całego dokumentu — daty, powierzchnie, adresy, numeracja, zgodność liczb między rozdziałami i załącznikami, aktualność przywołanych przepisów, pozostałości z innych operatów.</p>
+    </article>
+
+    <!-- ===== DEMO 5: ZAPYTAJ ===== -->
+    <article class="demo" id="demo5">
+      <div class="demo-head">
+        <span class="demo-num">Scenariusz 5 / 5</span>
+        <h3>Zapytaj o rynek i kancelarię</h3>
+      </div>
+      <p class="pain">Pain point: odpowiedź na proste pytanie wymaga otwarcia bazy, Excela z terminami i trzech starych operatów. Kliknij pytanie:</p>
+      <div class="demo-stage">
+        <div class="qbtns" id="d5btns">
+          <button class="qbtn" data-q="0">Jaki trend cen lokali 40–60 m² na tym rynku?</button>
+          <button class="qbtn" data-q="1">Które operaty tracą ważność w sierpniu?</button>
+          <button class="qbtn" data-q="2">Mamy porównywalne do działki przemysłowej pod Radomiem?</button>
+        </div>
+        <div class="chat" id="d5chat" aria-live="polite"></div>
+      </div>
+      <div class="demo-actions">
+        <button class="btn hidden" id="d5reset">Od nowa</button>
+      </div>
+      <p class="demo-note"><b>Klasa możliwości:</b> jeden asystent nad danymi kancelarii — bazą transakcji, rejestrem operatów i terminów, archiwum. Pytasz po polsku, odpowiedź przychodzi z liczbami i źródłem. Także w terenie, z telefonu.</p>
+    </article>
+
+    <div class="more-teaser">
+      <p><span class="mono-small">poziom drugi · dla zainteresowanych</span>To tylko wierzchołek. Zebraliśmy <b>16 kolejnych scenariuszy</b> — od odsiewu transakcji i masowego czytania KW po uwagi weryfikatora bankowego i protokoły z oględzin.</p>
+      <a class="btn btn-primary" href="#wiecej">Zobacz katalog scenariuszy</a>
+    </div>
+  </section>
+
+  <!-- ============ DLACZEGO TANIO ============ -->
+  <section id="dlaczego">
+    <p class="eyebrow">Ekonomia rozwiązania</p>
+    <h2>Dlaczego to jest szybkie i tanie</h2>
+    <p class="lead">Te scenariusze nie wymagają projektu IT z korporacyjnym budżetem. Programowanie agentowe — oprogramowanie pisane przez AI pod nadzorem inżyniera — zmienia ekonomię narzędzi szytych na miarę.</p>
+    <div class="why-cards">
+      <div class="card">
+        <h3>Dni, nie kwartały</h3>
+        <p>Prototyp procesu, który dziś robisz ręcznie, powstaje w dni. Testujesz na własnych danych po pierwszym tygodniu, a nie po roku wdrożenia.</p>
+      </div>
+      <div class="card">
+        <h3>Bez licencji enterprise</h3>
+        <p>Narzędzie robione pod jeden konkretny proces zamiast platformy „do wszystkiego" za dziesiątki tysięcy rocznie. Płacisz za rozwiązany problem, nie za moduły, których nie użyjesz.</p>
+      </div>
+      <div class="card">
+        <h3>Zmiany od ręki</h3>
+        <p>Nowy bank na liście zleceniodawców, nowelizacja rozporządzenia, nowy standard zawodowy? Dostosowanie liczy się w godzinach. Narzędzie nadąża za praktyką, a nie odwrotnie.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ CTA ============ -->
+  <section id="rozmowa" style="padding-bottom:0;">
+    <div class="cta">
+      <p class="mono-line">następny krok · 30 minut</p>
+      <h2>Zobaczyłeś coś znajomego?</h2>
+      <p>Umówmy się na pół godziny. Ty pokazujesz jeden proces, który najbardziej Cię męczy — np. jak dziś trafia do Ciebie paczka z RCN — a my wracamy z działającym prototypem na Twoich danych. Bez zobowiązań, bez prezentacji w PowerPoincie. Jeśli prototyp nie oszczędza czasu, temat umiera śmiercią naturalną.</p>
+    </div>
+  </section>
+  </div><!-- /view-start -->
+
+  <!-- ============ ZAKŁADKA 2: KATALOG SCENARIUSZY ============ -->
+  <div id="view-wiecej" hidden>
+    <section style="padding-top:40px;">
+      <p class="eyebrow">Poziom drugi · katalog</p>
+      <h2>16 kolejnych scenariuszy</h2>
+      <p class="lead">Pięć symulacji na stronie startowej to próbka. Poniżej pełniejszy katalog miejsc, w których praca rzeczoznawcy krwawi czasem — pogrupowany tak, jak wygląda proces: dane, dokumenty, operat, kancelaria. Rozwiń to, co brzmi znajomo.</p>
+
+      <div class="cat-group">
+        <h3><span class="mono">A</span> Dane i źródła</h3>
+        <p>Wszystko, co dzieje się zanim powstanie baza porównawcza.</p>
+
+        <details class="acc">
+          <summary>RCN z wielu starostw w jedną bazę</summary>
+          <div class="acc-body">
+            <p><b class="k k-problem">Problem</b>Każde starostwo wydaje wypisy z rejestru cen po swojemu: inny format, inne kolumny, inne oznaczenia. Praca na kilku powiatach oznacza ręczne sklejanie i deduplikację przy każdej paczce.</p>
+            <p><b class="k k-mozliwosc">Możliwość</b>Automatyczne wczytywanie wypisów niezależnie od formatu, mapowanie na jeden słownik atrybutów, wykrywanie duplikatów i braków. Nowa paczka ze starostwa trafia do bazy w minuty, nie w wieczór.</p>
+          </div>
+        </details>
+        <details class="acc">
+          <summary>Odsiew transakcji nierynkowych z uzasadnieniem</summary>
+          <div class="acc-body">
+            <p><b class="k k-problem">Problem</b>Sprzedaże rodzinne, egzekucyjne, udziałowe i okazyjne zaniżają lub wykrzywiają próbkę. Ich wyłapanie wymaga przejrzenia każdej transakcji — a odsiew trzeba jeszcze umieć obronić.</p>
+            <p><b class="k k-mozliwosc">Możliwość</b>Automatyczne flagowanie podejrzanych transakcji (odchylenie od rynku, grupa podatkowa, tryb sprzedaży, udział) — każda flaga z uzasadnieniem zapisanym do dokumentacji. Decyzja o odrzuceniu zawsze Twoja.</p>
+          </div>
+        </details>
+        <details class="acc">
+          <summary>Monitoring nowych transakcji w obszarze analizy</summary>
+          <div class="acc-body">
+            <p><b class="k k-problem">Problem</b>Między zamówieniem danych a oddaniem operatu rynek żyje. Nowa, dobrze porównywalna transakcja pojawia się tydzień po wysłaniu operatu — i nikt o niej nie wie.</p>
+            <p><b class="k k-mozliwosc">Możliwość</b>Stały nasłuch na obszarach, gdzie masz otwarte wyceny: alert, gdy pojawia się transakcja pasująca do profilu nieruchomości, z gotowym porównaniem do przyjętej próbki.</p>
+          </div>
+        </details>
+        <details class="acc">
+          <summary>Ujednolicanie atrybutów z różnych źródeł</summary>
+          <div class="acc-body">
+            <p><b class="k k-problem">Problem</b>„Stan dobry", „do odświeżenia", „standard deweloperski" — te same cechy opisane inaczej w każdym źródle. Porównywanie wymaga ręcznego przekodowania opisów na Twoją skalę cech rynkowych.</p>
+            <p><b class="k k-mozliwosc">Możliwość</b>Automatyczne mapowanie opisów na Twoją skalę atrybutów (z widocznym śladem: co z czego wynika), spójne między operatami i gotowe do analizy cech rynkowych.</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="cat-group">
+        <h3><span class="mono">B</span> Dokumenty nieruchomości</h3>
+        <p>KW, plany, dokumenty spółdzielcze — czytanie, którego nikt nie lubi.</p>
+
+        <details class="acc">
+          <summary>Masowe czytanie KW dla portfela</summary>
+          <div class="acc-body">
+            <p><b class="k k-problem">Problem</b>Wycena portfelowa dla banku czy funduszu to setki ksiąg wieczystych. Przeczytanie czterech działów każdej z nich zajmuje tygodnie — a przeoczenie obciążenia w jednej podważa całość.</p>
+            <p><b class="k k-mozliwosc">Możliwość</b>Cały portfel przeczytany automatycznie: tabela obciążeń, hipotek, służebności i roszczeń dla każdej pozycji, z flagami „wymaga uwagi rzeczoznawcy" i odniesieniem do konkretnych wpisów.</p>
+          </div>
+        </details>
+        <details class="acc">
+          <summary>Wyciągi z MPZP dla wielu działek naraz</summary>
+          <div class="acc-body">
+            <p><b class="k k-problem">Problem</b>Przy wycenie gruntów inwestycyjnych albo portfela działek każdą trzeba osobno sprawdzić w planie: przeznaczenie, wskaźniki, strefy. Kilkanaście uchwał, każda pisana innym językiem.</p>
+            <p><b class="k k-mozliwosc">Możliwość</b>Zbiorczy wyciąg planistyczny dla listy działek: przeznaczenie i parametry w jednej tabeli, z paragrafem źródłowym przy każdej wartości i flagą tam, gdzie plan jest niejednoznaczny.</p>
+          </div>
+        </details>
+        <details class="acc">
+          <summary>Dokumenty spółdzielcze i wspólnotowe</summary>
+          <div class="acc-body">
+            <p><b class="k k-problem">Problem</b>Zaświadczenia ze spółdzielni, uchwały wspólnot, umowy deweloperskie — każdy dokument inny, a z każdego potrzeba dwóch–trzech faktów: tytuł prawny, powierzchnia, obciążenia, zaległości.</p>
+            <p><b class="k k-mozliwosc">Możliwość</b>Ekstrakcja kluczowych faktów z dowolnego dokumentu do karty nieruchomości — z linkiem do miejsca w skanie, z którego pochodzi każda wartość, więc weryfikacja to sekundy.</p>
+          </div>
+        </details>
+        <details class="acc">
+          <summary>Alert: coś się zmieniło w trakcie wyceny</summary>
+          <div class="acc-body">
+            <p><b class="k k-problem">Problem</b>Między przyjęciem zlecenia a podpisaniem operatu w KW pojawia się nowy wpis albo gmina uchwala zmianę planu. Jeśli nikt nie sprawdzi drugi raz — operat wychodzi z nieaktualnym stanem prawnym.</p>
+            <p><b class="k k-mozliwosc">Możliwość</b>Automatyczne ponowne sprawdzenie KW i planu tuż przed oddaniem operatu, z alertem przy każdej zmianie względem stanu z dnia przyjęcia zlecenia.</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="cat-group">
+        <h3><span class="mono">C</span> Operat i proces</h3>
+        <p>Sam dokument: składanie, kontrola, obrona przed weryfikatorem.</p>
+
+        <details class="acc">
+          <summary>Szkielet operatu z danych, nie z poprzedniego pliku</summary>
+          <div class="acc-body">
+            <p><b class="k k-problem">Problem</b>Opis stanu prawnego, dane z EGiB, opis lokalizacji — sekcje, które powstają przez edycję poprzedniego operatu. Stąd biorą się cudze adresy i stare liczby w nowych dokumentach.</p>
+            <p><b class="k k-mozliwosc">Możliwość</b>Sekcje opisowe generowane wprost z dokumentów źródłowych tej konkretnej nieruchomości (KW, EGiB, plan) — w Twoim szablonie i Twoim stylu, do redakcji zamiast do pisania od zera.</p>
+          </div>
+        </details>
+        <details class="acc">
+          <summary>Kontrola spójności liczb w całym dokumencie</summary>
+          <div class="acc-body">
+            <p><b class="k k-problem">Problem</b>Powierzchnia inna w rozdziale 4 niż w 7, suma z tabeli nie zgadza się z tekstem, załącznik nr 6 nie istnieje. Takie błędy znajduje weryfikator banku — i wraca cały operat.</p>
+            <p><b class="k k-mozliwosc">Możliwość</b>Automatyczne sprawdzenie każdej liczby, daty i odwołania w dokumencie przed wysyłką: niespójności wypisane z numerami stron, do poprawki w kwadrans zamiast rundy z weryfikatorem.</p>
+          </div>
+        </details>
+        <details class="acc">
+          <summary>Odpowiedzi na uwagi weryfikatora banku</summary>
+          <div class="acc-body">
+            <p><b class="k k-problem">Problem</b>Lista uwag z banku to dzień pracy: każdą trzeba sparować z treścią operatu, poprawić, opisać co zmieniono — w formacie, którego wymaga ten konkretny bank.</p>
+            <p><b class="k k-mozliwosc">Możliwość</b>Automatyczne sparowanie uwag z fragmentami operatu, propozycje poprawek tam, gdzie są mechaniczne, i projekt odpowiedzi punkt po punkcie w szablonie banku — do redakcji, nie od zera.</p>
+          </div>
+        </details>
+        <details class="acc">
+          <summary>Rejestr ważności operatów i klauzul</summary>
+          <div class="acc-body">
+            <p><b class="k k-problem">Problem</b>Operat jest ważny 12 miesięcy, potwierdzenie aktualności ma swoje warunki, a klient przypomina sobie tydzień po terminie. Rejestr żyje w Excelu, który ktoś musi pamiętać otworzyć.</p>
+            <p><b class="k k-mozliwosc">Możliwość</b>Rejestr zasilany z samych operatów, z wyprzedzającymi alertami i przygotowanym pakietem: czy wystarczy klauzula (rynek bez istotnych zmian — z danymi na poparcie), czy potrzebna aktualizacja.</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="cat-group">
+        <h3><span class="mono">D</span> Kancelaria i klienci</h3>
+        <p>To, co dzieje się przed zleceniem i obok niego.</p>
+
+        <details class="acc">
+          <summary>Zapytania ofertowe banków i funduszy</summary>
+          <div class="acc-body">
+            <p><b class="k k-problem">Problem</b>Zapytanie o wycenę portfela to dziesiątki stron wymagań: terminy, formaty, ubezpieczenie OC, kary. Decyzja „wchodzimy / nie wchodzimy" wymaga dnia czytania.</p>
+            <p><b class="k k-mozliwosc">Możliwość</b>Ekstrakcja wymagań i ryzyk z zapytania, checklist zgodności z Twoimi możliwościami i szkic kalkulacji na podstawie rzeczywistej czasochłonności podobnych zleceń — decyzja w godzinę.</p>
+          </div>
+        </details>
+        <details class="acc">
+          <summary>Protokół z oględzin z dyktafonu i zdjęć</summary>
+          <div class="acc-body">
+            <p><b class="k k-problem">Problem</b>Po wizji lokalnej zostaje sto zdjęć i notatki na kolanie. Spisanie protokołu i opisu stanu technicznego to wieczór — a szczegóły umykają z każdą godziną.</p>
+            <p><b class="k k-mozliwosc">Możliwość</b>Dyktujesz w trakcie oględzin; asystent składa protokół, taguje zdjęcia (pomieszczenie, usterka, standard) i przygotowuje szkic opisu stanu do operatu — do redakcji tego samego dnia.</p>
+          </div>
+        </details>
+        <details class="acc">
+          <summary>Archiwum kancelarii, które odpowiada</summary>
+          <div class="acc-body">
+            <p><b class="k k-problem">Problem</b>Setki starych operatów to kopalnia wiedzy o lokalnych rynkach — ale nikt jej nie używa, bo znalezienie „jak opisaliśmy rynek w Górze Kalwarii w 2024" wymaga grzebania w folderach.</p>
+            <p><b class="k k-mozliwosc">Możliwość</b>Przeszukiwalne archiwum: pytasz „co mamy z rynku gruntów w gminie X?" i dostajesz fragmenty operatów, przyjęte próbki i wnioski — z linkami do plików źródłowych.</p>
+          </div>
+        </details>
+        <details class="acc">
+          <summary>Wdrażanie nowych ludzi w standard kancelarii</summary>
+          <div class="acc-body">
+            <p><b class="k k-problem">Problem</b>Jak opisujemy stan prawny, jaką skalę cech stosujemy, czego wymaga bank X — ta wiedza siedzi w głowie właściciela i pochłania jego czas przy każdym nowym pracowniku czy praktykancie.</p>
+            <p><b class="k k-mozliwosc">Możliwość</b>Baza wiedzy kancelarii, którą pyta się po polsku: standardy, szablony, wymagania zleceniodawców, historia decyzji metodycznych. Nowa osoba dostaje odpowiedzi z Waszej praktyki, nie z forów.</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="more-teaser" style="margin-top:48px;">
+        <p><span class="mono-small">żaden nie pasuje?</span>Ten katalog nie jest zamknięty. Najlepsze scenariusze zawsze wychodzą z rozmowy o <b>Twoim</b> konkretnym tygodniu pracy — opowiedz nam o nim.</p>
+        <a class="btn btn-primary" href="#rozmowa">Umów rozmowę</a>
+      </div>
+    </section>
+  </div><!-- /view-wiecej -->
+
+  <footer>
+    <p class="mono">Wszystkie dane, adresy, numery ksiąg i dokumenty w tym demie są fikcyjne — zbieżność przypadkowa. Demo poglądowe: pokazuje klasę możliwości, nie gotowy produkt. Nie stanowi operatu szacunkowego ani opinii o wartości.</p>
+  </footer>
+</main>
+
+<script>
+(function () {
+  "use strict";
+  var RM = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  function sleep(ms) { return new Promise(function (r) { setTimeout(r, RM ? 0 : ms); }); }
+  function $(id) { return document.getElementById(id); }
+
+  /* ============ HERO CANVAS: rozrzut cen + trend ============ */
+  var canvas = $("heroCanvas");
+  function cssVar(name) {
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  }
+  function drawHero() {
+    var dpr = window.devicePixelRatio || 1;
+    var w = canvas.clientWidth, h = canvas.clientHeight;
+    if (!w || !h) return;
+    canvas.width = w * dpr; canvas.height = h * dpr;
+    var ctx = canvas.getContext("2d");
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+
+    var line = cssVar("--line"), ink = cssVar("--ink-soft"),
+        accent = cssVar("--accent"), data = cssVar("--data"), bad = cssVar("--bad");
+
+    var padL = 64, padR = 24, padT = 22, padB = 34;
+    var plotW = w - padL - padR, plotH = h - padT - padB;
+    var minP = 9000, maxP = 13000;
+    function yFor(p) { return padT + (1 - (p - minP) / (maxP - minP)) * plotH; }
+    function xFor(t) { return padL + t * plotW; } // t: 0..1 (24 miesiące)
+
+    // siatka + osie
+    ctx.font = "10px ui-monospace, monospace";
+    ctx.strokeStyle = line; ctx.lineWidth = 1;
+    ctx.fillStyle = ink;
+    [10000, 11000, 12000].forEach(function (p) {
+      var y = yFor(p);
+      ctx.globalAlpha = 0.6;
+      ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(w - padR, y); ctx.stroke();
+      ctx.globalAlpha = 1;
+      ctx.fillText((p / 1000) + " tys. zł/m²", 6, y + 3);
+    });
+    [[0, "07.2024"], [0.5, "07.2025"], [1, "07.2026"]].forEach(function (m) {
+      var x = xFor(m[0]);
+      ctx.globalAlpha = 0.6;
+      ctx.beginPath(); ctx.moveTo(x, padT); ctx.lineTo(x, h - padB); ctx.stroke();
+      ctx.globalAlpha = 1;
+      var tw = ctx.measureText(m[1]).width;
+      ctx.fillText(m[1], Math.min(Math.max(x - tw / 2, padL - 30), w - padR - tw), h - padB + 16);
+    });
+
+    // transakcje (deterministyczny pseudo-szum)
+    var outliers = { 8: true, 19: true, 33: true };
+    for (var i = 0; i <= 40; i++) {
+      var t = i / 40;
+      var noise = Math.sin(i * 7.31) * 420 + Math.sin(i * 2.17) * 260;
+      var price = 10450 + t * 1150 + noise;
+      var isOut = outliers[i];
+      if (isOut) price -= 2600;
+      var x = xFor(t), y = yFor(Math.max(minP + 120, Math.min(maxP - 120, price)));
+      ctx.beginPath();
+      ctx.arc(x, y, isOut ? 4 : 3.2, 0, Math.PI * 2);
+      if (isOut) {
+        ctx.strokeStyle = bad; ctx.lineWidth = 1.4;
+        ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x - 2.4, y - 2.4); ctx.lineTo(x + 2.4, y + 2.4);
+        ctx.moveTo(x + 2.4, y - 2.4); ctx.lineTo(x - 2.4, y + 2.4);
+        ctx.stroke();
+      } else {
+        ctx.globalAlpha = 0.75;
+        ctx.fillStyle = data;
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+    }
+
+    // linia trendu
+    ctx.strokeStyle = accent; ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(xFor(0), yFor(10450));
+    ctx.lineTo(xFor(1), yFor(11600));
+    ctx.stroke();
+
+    // adnotacja trendu
+    ctx.fillStyle = accent;
+    ctx.font = "600 11px ui-monospace, monospace";
+    var label = "trend +0,35% / mies.";
+    var lw = ctx.measureText(label).width;
+    ctx.fillText(label, w - padR - lw - 4, yFor(11600) - 10);
+  }
+  drawHero();
+  window.addEventListener("resize", drawHero);
+  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", drawHero);
+  new MutationObserver(drawHero).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+  /* ============ ZAKŁADKI ============ */
+  var currentView = null;
+  function route() {
+    var v = location.hash === "#wiecej" ? "wiecej" : "start";
+    var changed = v !== currentView;
+    currentView = v;
+    $("view-start").hidden = v !== "start";
+    $("view-wiecej").hidden = v !== "wiecej";
+    document.querySelectorAll(".tab").forEach(function (a) {
+      a.classList.toggle("active", a.dataset.view === v);
+    });
+    if (!changed) return; // kotwice wewnątrz widoku obsługuje przeglądarka
+    if (v === "start") requestAnimationFrame(drawHero);
+    var target = null;
+    if (location.hash && location.hash !== "#wiecej" && location.hash !== "#start") {
+      target = document.querySelector(location.hash);
+    }
+    if (target) target.scrollIntoView();
+    else window.scrollTo(0, 0);
+  }
+  window.addEventListener("hashchange", route);
+  route();
+
+  /* ============ POMOCNICZE ============ */
+  function addMsg(container, cls, whoHtml, bodyHtml) {
+    var div = document.createElement("div");
+    div.className = "msg " + cls;
+    div.innerHTML = (whoHtml ? '<span class="who">' + whoHtml + "</span>" : "") + bodyHtml;
+    container.appendChild(div);
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () { div.classList.add("show"); });
+    });
+    return div;
+  }
+  // wspólny silnik dla list ustaleń (KW, kontrola operatu)
+  function findingsRunner(cfg) {
+    var busy = false;
+    $(cfg.run).addEventListener("click", async function () {
+      if (busy) return;
+      busy = true;
+      this.disabled = true;
+      this.textContent = cfg.busyLabel;
+      var out = $(cfg.out);
+      out.innerHTML = "";
+      $(cfg.sum).classList.add("hidden");
+      var bar = $(cfg.bar);
+      bar.style.width = "0";
+      for (var i = 0; i < cfg.items.length; i++) {
+        bar.style.width = ((i + 1) / cfg.items.length) * 100 + "%";
+        await sleep(520);
+        var li = document.createElement("li");
+        li.className = cfg.items[i][0];
+        li.innerHTML = '<span class="fk">' + cfg.items[i][1] + "</span>" + cfg.items[i][2];
+        out.appendChild(li);
+        requestAnimationFrame(function () {
+          requestAnimationFrame(function () { out.lastElementChild.classList.add("show"); });
+        });
+      }
+      await sleep(400);
+      $(cfg.sum).classList.remove("hidden");
+      this.textContent = "Gotowe ✓";
+      $(cfg.reset).classList.remove("hidden");
+      busy = false;
+    });
+    $(cfg.reset).addEventListener("click", function () {
+      if (busy) return;
+      $(cfg.out).innerHTML = "";
+      $(cfg.sum).classList.add("hidden");
+      $(cfg.bar).style.width = "0";
+      this.classList.add("hidden");
+      var run = $(cfg.run);
+      run.disabled = false;
+      run.textContent = cfg.runLabel;
+    });
+  }
+
+  /* ============ DEMO 1: AKT NOTARIALNY ============ */
+  var d1fields = ["data", "rodz", "pow", "cena", "jedn", "kw"];
+  var d1vals = {
+    data: "2026-06-16",
+    rodz: "lokal mieszkalny (rynek wtórny)",
+    pow: "54,30 m²",
+    cena: "612 000 zł",
+    jedn: "11 271 zł/m²",
+    kw: "WA5M/00312876/2 · udz. 543/24100"
+  };
+  var d1docmap = { data: "data", rodz: "rodz", pow: "pow", cena: "cena", jedn: "cena", kw: "kw" };
+  var d1busy = false;
+  $("d1run").addEventListener("click", async function () {
+    if (d1busy) return;
+    d1busy = true;
+    this.disabled = true;
+    this.textContent = "Przetwarzanie…";
+    for (var i = 0; i < d1fields.length; i++) {
+      var f = d1fields[i];
+      document.querySelectorAll('#d1doc [data-f="' + d1docmap[f] + '"]').forEach(function (s) { s.classList.add("hl"); });
+      $("d1-" + f).textContent = d1vals[f];
+      await sleep(340);
+    }
+    await sleep(300);
+    $("d1letter").classList.remove("hidden");
+    await sleep(650);
+    $("d1reg").classList.remove("hidden");
+    this.textContent = "Gotowe ✓";
+    $("d1reset").classList.remove("hidden");
+    d1busy = false;
+  });
+  $("d1reset").addEventListener("click", function () {
+    if (d1busy) return;
+    document.querySelectorAll("#d1doc .hl").forEach(function (s) { s.classList.remove("hl"); });
+    d1fields.forEach(function (f) { $("d1-" + f).textContent = ""; });
+    $("d1letter").classList.add("hidden");
+    $("d1reg").classList.add("hidden");
+    this.classList.add("hidden");
+    var run = $("d1run");
+    run.disabled = false;
+    run.textContent = "Przetwórz akt";
+  });
+
+  /* ============ DEMO 2: KSIĘGA WIECZYSTA ============ */
+  findingsRunner({
+    run: "d2run", reset: "d2reset", out: "d2out", sum: "d2sum", bar: "d2bar",
+    runLabel: "Przeanalizuj księgę", busyLabel: "Czytanie działów…",
+    items: [
+      ["f-bad", "dział IV · hipoteka", "Hipoteka umowna <b class=\"mono\">850 000 zł</b> na rzecz banku (wpis 4/2023). Do odnotowania w stanie prawnym."],
+      ["f-warn", "dział III · służebność", "Służebność przesyłu na pasie <b class=\"mono\">4 m</b> wzdłuż granicy południowej (wpis 7/2019) — wpływ na wartość do rozważenia."],
+      ["f-warn", "dział III · roszczenie", "Roszczenie o zawarcie umowy przyrzeczonej z <b class=\"mono\">2019 r.</b> — brak wzmianki o wykreśleniu; sprawdzić aktualność u stron."],
+      ["f-ok", "dział I-O · zgodność", "Oznaczenie nieruchomości zgodne z EGiB (dz. 142/8, pow. <span class=\"mono\">0,1245 ha</span>). Brak wzmianek o niezgodności."]
+    ]
+  });
+
+  /* ============ DEMO 3: MPZP ============ */
+  var d3data = {
+    a: {
+      src: "źródło: uchwała nr XLII/512/2021 Rady Miejskiej w Piasecznie, § 47 + rysunek planu · wyciąg automatyczny — do weryfikacji z oryginałem",
+      items: [
+        ["c-ok", "✓", "Przeznaczenie: 15.MN/U — zabudowa mieszkaniowa jednorodzinna z usługami", ""],
+        ["c-ok", "✓", "Wskaźniki: intensywność do 0,8 · wysokość do 9 m · pow. biologicznie czynna min. 40%", ""],
+        ["c-warn", "!", "Nieprzekraczalna linia zabudowy 6 m od drogi 12.KDD", "ogranicza zabudowę frontu działki — istotne dla wartości gruntu"],
+        ["c-ok", "✓", "Brak stref ochronnych i ograniczeń szczególnych na rysunku planu", ""]
+      ]
+    },
+    b: {
+      src: "źródło: uchwała nr XV/98/2019 Rady Miejskiej Góry Kalwarii, § 12 + studium · wyciąg automatyczny — do weryfikacji z oryginałem",
+      items: [
+        ["c-warn", "!", "Przeznaczenie: 3.R — tereny rolnicze", "część wschodnia (ok. 0,3 ha) w terenie 7.ZL — lasy"],
+        ["c-bad", "✗", "Zabudowa: niedopuszczalna (poza siedliskową na warunkach § 12 ust. 3)", "wycena wg przeznaczenia rolnego — nie jak dla gruntu budowlanego"],
+        ["c-ok", "✓", "Studium: kierunek rolniczy bez zapowiedzi przekształcenia", ""],
+        ["c-ok", "✓", "Brak stref ochrony konserwatorskiej i archeologicznej", ""]
+      ]
+    },
+    c: {
+      src: "źródło: uchwała nr VII/61/2015 Rady Miejskiej Konstancina-Jeziorny, § 29 + rysunek planu · wyciąg automatyczny — do weryfikacji z oryginałem",
+      items: [
+        ["c-ok", "✓", "Przeznaczenie: 8.MN — zabudowa jednorodzinna rezydencjonalna, działka min. 1500 m²", ""],
+        ["c-warn", "!", "Strefa ochrony konserwatorskiej „B”", "działania inwestycyjne wymagają uzgodnienia z konserwatorem — wydłuża proces, wpływa na wartość"],
+        ["c-warn", "!", "Ok. 15% powierzchni działki w terenie 2.ZP — zieleń urządzona", "część bez prawa zabudowy — uwzględnić w wycenie powierzchni"],
+        ["c-ok", "✓", "Wskaźniki: intensywność do 0,4 · wysokość do 10,5 m · PBC min. 70%", ""]
+      ]
+    }
+  };
+  $("d3run").addEventListener("click", function () {
+    var data = d3data[$("d3sel").value];
+    var out = $("d3out");
+    out.innerHTML = "";
+    data.items.forEach(function (it) {
+      var li = document.createElement("li");
+      li.className = it[0];
+      li.innerHTML = '<span class="ic">' + it[1] + "</span><div>" + it[2] +
+        (it[3] ? "<small>" + it[3] + "</small>" : "") + "</div>";
+      out.appendChild(li);
+    });
+    var src = $("d3src");
+    src.textContent = data.src;
+    src.classList.remove("hidden");
+  });
+
+  /* ============ DEMO 4: KONTROLA OPERATU ============ */
+  findingsRunner({
+    run: "d4run", reset: "d4reset", out: "d4out", sum: "d4sum", bar: "d4bar",
+    runLabel: "Sprawdź operat", busyLabel: "Kontrola…",
+    items: [
+      ["f-bad", "niespójność dat", "Data wyceny: <b class=\"mono\">12.06.2026</b> na stronie tytułowej, <b class=\"mono\">12.05.2026</b> w klauzuli (str. 71). Jedna z nich jest błędna."],
+      ["f-bad", "niespójność liczb", "Pow. użytkowa <b class=\"mono\">54,30 m²</b> w opisie (str. 28), ale <b class=\"mono\">45,30 m²</b> w podejściu porównawczym (str. 43) — czeski błąd z wpływem na wynik."],
+      ["f-warn", "pozostałość", "Opis lokalizacji (str. 12) zawiera „ul. Puławska 118” — prawdopodobnie pozostałość z innego operatu."],
+      ["f-warn", "podstawy prawne", "Przywołane rozporządzenie w brzmieniu sprzed ostatniej nowelizacji — do aktualizacji przypisu (str. 6)."],
+      ["f-ok", "struktura", "Numeracja załączników, spis treści i odwołania między rozdziałami — zgodne (11/11 załączników obecnych)."]
+    ]
+  });
+
+  /* ============ DEMO 5: PYTANIA ============ */
+  var d5qa = [
+    ["Jaki trend cen lokali 40–60 m² na tym rynku?",
+     'Mediana z ostatnich 12 mies.: <b class="num">11 380 zł/m²</b> (n = <span class="num">87</span> transakcji z RCN po odsiewie). Trend: <b class="num">+4,2% r/r</b>, proponowana korekta czasowa do podejścia porównawczego ≈ <b class="num">+0,35%/mies.</b> Rozrzut między obrębami: do <span class="num">6,8%</span>. Źródło: baza transakcji + rejestr odsiewu.'],
+    ["Które operaty tracą ważność w sierpniu?",
+     '<b class="num">6 operatów</b> (4 zleceniodawców) traci ważność między <span class="num">04.08</span> a <span class="num">28.08</span>. Dla 4 wystarczy potwierdzenie aktualności — rynek bez istotnych zmian (dane w załączniku). Dla 2 potrzebna aktualizacja: w obszarze uchwalono zmianę planu. Projekty pism do klientów przygotowane — do akceptacji.'],
+    ["Mamy porównywalne do działki przemysłowej pod Radomiem?",
+     'W bazie: <b class="num">7 transakcji</b> gruntami P/BP w promieniu 25 km z ostatnich 24 mies. Po odsiewie zostają <span class="num">3</span> (2 nierynkowe, 2 poza przedziałem powierzchni). Luka: brak transakcji &gt; 2 ha. Rekomendacja: rozszerzyć promień do 40 km albo wydłużyć okres i zwiększyć korektę czasową. Zestawienie gotowe.']
+  ];
+  var d5busy = false;
+  document.querySelectorAll("#d5btns .qbtn").forEach(function (btn) {
+    btn.addEventListener("click", async function () {
+      if (d5busy || btn.disabled) return;
+      d5busy = true;
+      btn.disabled = true;
+      var qa = d5qa[parseInt(btn.dataset.q, 10)];
+      var chat = $("d5chat");
+      addMsg(chat, "msg-user", "Ty", qa[0]);
+      await sleep(500);
+      var t = document.createElement("div");
+      t.className = "typing";
+      t.textContent = "asystent szuka w danych kancelarii";
+      chat.appendChild(t);
+      await sleep(1200);
+      t.remove();
+      addMsg(chat, "msg-agent", "Asystent kancelarii", '<div class="answer">' + qa[1] + "</div>");
+      $("d5reset").classList.remove("hidden");
+      d5busy = false;
+    });
+  });
+  $("d5reset").addEventListener("click", function () {
+    if (d5busy) return;
+    $("d5chat").innerHTML = "";
+    document.querySelectorAll("#d5btns .qbtn").forEach(function (b) { b.disabled = false; });
+    this.classList.add("hidden");
+  });
+})();
+</script>
+</body>
+</html>

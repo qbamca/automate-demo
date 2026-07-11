@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Automate × AI — dema możliwości dla branż</title>
+<style>
+  :root {
+    --bg: #F6F5F2;
+    --bg-raise: #FFFFFF;
+    --ink: #23262B;
+    --ink-soft: #5B6067;
+    --line: #DBD8D0;
+    --line-soft: #E8E5DE;
+    --accent: #2F5AA8;
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", "JetBrains Mono", Consolas, "Liberation Mono", monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --geo: #D9480F;
+    --geo-soft: #FBE8DD;
+    --wyc: #176E4B;
+    --wyc-soft: #DEEFE5;
+    --shadow: 0 1px 2px rgba(35,38,43,.06), 0 10px 28px -14px rgba(35,38,43,.18);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16181C; --bg-raise: #1D2126; --ink: #E7E5E0; --ink-soft: #9AA0A8;
+      --line: #30353C; --line-soft: #262B31; --accent: #7FA6E0;
+      --geo: #F0692C; --geo-soft: #3A2418;
+      --wyc: #46B97C; --wyc-soft: #1B3226;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 12px 30px -14px rgba(0,0,0,.55);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #F6F5F2; --bg-raise: #FFFFFF; --ink: #23262B; --ink-soft: #5B6067;
+    --line: #DBD8D0; --line-soft: #E8E5DE; --accent: #2F5AA8;
+    --geo: #D9480F; --geo-soft: #FBE8DD; --wyc: #176E4B; --wyc-soft: #DEEFE5;
+    --shadow: 0 1px 2px rgba(35,38,43,.06), 0 10px 28px -14px rgba(35,38,43,.18);
+  }
+  :root[data-theme="dark"] {
+    --bg: #16181C; --bg-raise: #1D2126; --ink: #E7E5E0; --ink-soft: #9AA0A8;
+    --line: #30353C; --line-soft: #262B31; --accent: #7FA6E0;
+    --geo: #F0692C; --geo-soft: #3A2418; --wyc: #46B97C; --wyc-soft: #1B3226;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 12px 30px -14px rgba(0,0,0,.55);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: var(--sans); font-size: 16px; line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  body::before {
+    content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background:
+      repeating-linear-gradient(to right, transparent 0 63px, var(--line-soft) 63px 64px),
+      repeating-linear-gradient(to bottom, transparent 0 63px, var(--line-soft) 63px 64px);
+    opacity: .5;
+    mask-image: linear-gradient(to bottom, rgba(0,0,0,.9), rgba(0,0,0,.2));
+    -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,.9), rgba(0,0,0,.2));
+  }
+  main { position: relative; z-index: 1; max-width: 880px; margin: 0 auto; padding: 72px 20px 60px; }
+  .eyebrow {
+    font-family: var(--mono); font-size: .74rem; letter-spacing: .14em;
+    text-transform: uppercase; color: var(--accent);
+    display: flex; align-items: center; gap: 10px; margin: 0 0 16px;
+  }
+  .eyebrow::after { content: ""; flex: 0 0 42px; height: 1px; background: var(--accent); opacity: .5; }
+  h1 { font-size: clamp(1.8rem, 4.4vw, 2.8rem); font-weight: 800; letter-spacing: -0.02em; line-height: 1.15; text-wrap: balance; margin: 0 0 .5em; }
+  .lead { font-size: 1.08rem; color: var(--ink-soft); max-width: 62ch; margin: 0 0 44px; }
+  .demos { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 18px; }
+  .demo-card {
+    display: block; text-decoration: none; color: inherit;
+    background: var(--bg-raise); border: 1px solid var(--line);
+    border-radius: 8px; padding: 26px 26px 22px;
+    transition: transform .13s ease, box-shadow .13s ease;
+    position: relative; overflow: hidden;
+  }
+  .demo-card::before {
+    content: ""; position: absolute; top: 0; left: 0; right: 0; height: 4px;
+    background: var(--card-accent);
+  }
+  .demo-card:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
+  .demo-card:focus-visible { outline: 2px solid var(--card-accent); outline-offset: 2px; }
+  .demo-card .k {
+    font-family: var(--mono); font-size: .7rem; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--card-accent);
+    display: inline-block; background: var(--card-soft);
+    border-radius: 999px; padding: 4px 10px; margin-bottom: 14px;
+  }
+  .demo-card h2 { font-size: 1.25rem; font-weight: 750; margin: 0 0 .4em; letter-spacing: -0.01em; }
+  .demo-card p { font-size: .92rem; color: var(--ink-soft); margin: 0 0 16px; }
+  .demo-card .go { font: 600 .88rem var(--sans); color: var(--card-accent); }
+  .card-geo { --card-accent: var(--geo); --card-soft: var(--geo-soft); }
+  .card-wyc { --card-accent: var(--wyc); --card-soft: var(--wyc-soft); }
+  .card-next {
+    border-style: dashed; background: transparent;
+    display: flex; flex-direction: column; justify-content: center;
+  }
+  .card-next::before { display: none; }
+  .card-next:hover { transform: none; box-shadow: none; }
+  .card-next h2 { color: var(--ink-soft); font-size: 1.05rem; }
+  .card-next p { margin-bottom: 0; }
+  footer {
+    margin-top: 56px; padding-top: 22px; border-top: 1px solid var(--line);
+    font-family: var(--mono); font-size: .7rem; letter-spacing: .06em; color: var(--ink-soft);
+  }
+</style>
+</head>
+<body>
+<main>
+  <p class="eyebrow">Dema możliwości · LLM + automatyzacja</p>
+  <h1>Zobacz, co automatyzacja może zdjąć z Twojego biurka.</h1>
+  <p class="lead">Interaktywne dema dla konkretnych zawodów: realne pain pointy, klikalne symulacje i katalog scenariuszy do zgłębienia. Wszystkie dane są fikcyjne, interakcje symulowane — liczy się klasa możliwości, nie gotowy produkt. Wybierz swoją branżę:</p>
+
+  <div class="demos">
+    <a class="demo-card card-geo" href="geodezja/">
+      <span class="k">geodezja · projekty liniowe</span>
+      <h2>Geodeta przy liniach energetycznych</h2>
+      <p>Wypisy z EGiB i służebności przesyłu, raporty dzienne z terenu, kontrola danych z wielu brygad, operaty pod wymagania PODGiK-ów, pytania o stan projektu.</p>
+      <span class="go">Otwórz demo →</span>
+    </a>
+    <a class="demo-card card-wyc" href="wycena/">
+      <span class="k">wycena nieruchomości</span>
+      <h2>Rzeczoznawca majątkowy</h2>
+      <p>Akty notarialne i RCN do bazy porównawczej, czytanie ksiąg wieczystych, wyciągi z MPZP, kontrola spójności operatu, pytania o rynek i kancelarię.</p>
+      <span class="go">Otwórz demo →</span>
+    </a>
+    <div class="demo-card card-next">
+      <h2>Twoja branża?</h2>
+      <p>Kolejne dema powstają na bazie rozmów z praktykami. Jeśli Twój tydzień pracy też krwawi czasem przy dokumentach, raportach i przeklejaniu — porozmawiajmy.</p>
+    </div>
+  </div>
+
+  <footer>dane w demach fikcyjne · zbieżność przypadkowa · strony poglądowe</footer>
+</main>
+</body>
+</html>
