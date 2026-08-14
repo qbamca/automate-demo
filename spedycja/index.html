@@ -1,0 +1,1378 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spedycja × AI — demo automatyzacji zleceń transportowych</title>
+<style>
+  /* ============ TOKENY ============ */
+  :root {
+    --bg: #F7F5F0;
+    --bg-raise: #FFFFFF;
+    --bg-inset: #EFECE4;
+    --ink: #23282E;
+    --ink-soft: #5C636C;
+    --line: #DDD7CB;
+    --line-soft: #E9E4D9;
+    --accent: #0F6F7C;
+    --accent-soft: #DCEDEF;
+    --accent-ink: #FFFFFF;
+    --data: #8A6222;
+    --ok: #2B7A3D;
+    --ok-soft: #E1F0E3;
+    --warn: #94690A;
+    --warn-soft: #F7EDD3;
+    --bad: #B3261E;
+    --bad-soft: #F8E2E0;
+    --shadow: 0 1px 2px rgba(35,40,46,.06), 0 8px 24px -12px rgba(35,40,46,.14);
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", "JetBrains Mono", Consolas, "Liberation Mono", monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --radius: 6px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #15181D;
+      --bg-raise: #1D2127;
+      --bg-inset: #191D23;
+      --ink: #E8E5DE;
+      --ink-soft: #9BA2AC;
+      --line: #31373F;
+      --line-soft: #272C34;
+      --accent: #3FBCCB;
+      --accent-soft: #123036;
+      --accent-ink: #08171A;
+      --data: #D2B36A;
+      --ok: #63BE74;
+      --ok-soft: #1D2E20;
+      --warn: #DFAE44;
+      --warn-soft: #322A16;
+      --bad: #E5756E;
+      --bad-soft: #362020;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 28px -12px rgba(0,0,0,.5);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #F7F5F0; --bg-raise: #FFFFFF; --bg-inset: #EFECE4;
+    --ink: #23282E; --ink-soft: #5C636C; --line: #DDD7CB; --line-soft: #E9E4D9;
+    --accent: #0F6F7C; --accent-soft: #DCEDEF; --accent-ink: #FFFFFF; --data: #8A6222;
+    --ok: #2B7A3D; --ok-soft: #E1F0E3; --warn: #94690A; --warn-soft: #F7EDD3;
+    --bad: #B3261E; --bad-soft: #F8E2E0;
+    --shadow: 0 1px 2px rgba(35,40,46,.06), 0 8px 24px -12px rgba(35,40,46,.14);
+  }
+  :root[data-theme="dark"] {
+    --bg: #15181D; --bg-raise: #1D2127; --bg-inset: #191D23;
+    --ink: #E8E5DE; --ink-soft: #9BA2AC; --line: #31373F; --line-soft: #272C34;
+    --accent: #3FBCCB; --accent-soft: #123036; --accent-ink: #08171A; --data: #D2B36A;
+    --ok: #63BE74; --ok-soft: #1D2E20; --warn: #DFAE44; --warn-soft: #322A16;
+    --bad: #E5756E; --bad-soft: #362020;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 28px -12px rgba(0,0,0,.5);
+  }
+
+  /* ============ BAZA ============ */
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  body::before {
+    content: "";
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background:
+      repeating-linear-gradient(to right, transparent 0 63px, var(--line-soft) 63px 64px),
+      repeating-linear-gradient(to bottom, transparent 0 63px, var(--line-soft) 63px 64px);
+    opacity: .5;
+    mask-image: linear-gradient(to bottom, rgba(0,0,0,.9), rgba(0,0,0,.25) 40%, rgba(0,0,0,.15));
+    -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,.9), rgba(0,0,0,.25) 40%, rgba(0,0,0,.15));
+  }
+  main { position: relative; z-index: 1; max-width: 1060px; margin: 0 auto; padding: 0 20px; }
+  h1, h2, h3 { line-height: 1.2; text-wrap: balance; margin: 0 0 .5em; }
+  h1 { font-size: clamp(1.9rem, 4.6vw, 3.1rem); font-weight: 800; letter-spacing: -0.02em; }
+  h2 { font-size: clamp(1.4rem, 3vw, 2rem); font-weight: 750; letter-spacing: -0.015em; }
+  h3 { font-size: 1.08rem; font-weight: 700; }
+  p { margin: 0 0 1em; max-width: 68ch; }
+  a { color: var(--accent); }
+  section { padding: 56px 0 8px; }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: .74rem;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 14px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .eyebrow::after { content: ""; flex: 0 0 42px; height: 1px; background: var(--accent); opacity: .5; }
+  .lead { font-size: 1.08rem; color: var(--ink-soft); }
+  .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .hidden { display: none !important; }
+
+  /* ============ NAWIGACJA ZAKŁADEK ============ */
+  .topnav {
+    position: sticky; top: 0; z-index: 10;
+    display: flex; justify-content: space-between; align-items: center; gap: 16px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--line);
+    padding: 12px 0;
+    margin: 0 0 4px;
+  }
+  .topnav .brand { font-family: var(--mono); font-size: .78rem; letter-spacing: .14em; font-weight: 600; }
+  .topnav .brand em { color: var(--accent); font-style: normal; }
+  .tablinks { display: flex; gap: 6px; }
+  .tab {
+    font: 600 .84rem/1 var(--sans); text-decoration: none; color: var(--ink-soft);
+    padding: 9px 14px; border-radius: 999px; border: 1px solid transparent;
+  }
+  .tab:hover { color: var(--ink); }
+  .tab.active { color: var(--accent); background: var(--accent-soft); }
+
+  /* ============ HERO ============ */
+  .hero { padding: 64px 0 24px; }
+  .hero-top {
+    display: flex; justify-content: space-between; align-items: baseline;
+    gap: 16px; flex-wrap: wrap;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 10px; margin-bottom: 40px;
+    font-family: var(--mono); font-size: .74rem; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--ink-soft);
+  }
+  .hero-top strong { color: var(--ink); font-weight: 600; }
+  .hero p.lead { font-size: 1.15rem; margin-top: 18px; }
+  .hero-cta { display: flex; gap: 12px; flex-wrap: wrap; margin: 26px 0 34px; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    font: 600 .92rem/1 var(--sans);
+    padding: 12px 20px; border-radius: var(--radius);
+    border: 1px solid var(--line); background: var(--bg-raise); color: var(--ink);
+    cursor: pointer; text-decoration: none;
+    transition: transform .12s ease, box-shadow .12s ease;
+  }
+  .btn:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
+  .btn:focus-visible, button:focus-visible, select:focus-visible {
+    outline: 2px solid var(--accent); outline-offset: 2px;
+  }
+  .btn-primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  .btn[disabled] { opacity: .55; cursor: default; transform: none; box-shadow: none; }
+  #heroCanvas {
+    width: 100%; height: 240px; display: block;
+    border: 1px solid var(--line); border-radius: var(--radius);
+    background: var(--bg-raise);
+  }
+  .hero-canvas-caption {
+    font-family: var(--mono); font-size: .72rem; color: var(--ink-soft);
+    margin-top: 8px; letter-spacing: .04em;
+  }
+
+  /* ============ KARTY PAIN POINTÓW ============ */
+  .grid-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 16px; margin-top: 28px; }
+  .card {
+    background: var(--bg-raise); border: 1px solid var(--line);
+    border-radius: var(--radius); padding: 22px 22px 14px;
+  }
+  .card h3 { margin-bottom: .45em; }
+  .card p { color: var(--ink-soft); font-size: .93rem; margin-bottom: .4em; }
+  .card .tag {
+    font-family: var(--mono); font-size: .68rem; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--data); display: block; margin-bottom: 10px;
+  }
+
+  /* ============ NARZĘDZIA (czego nie ruszamy) ============ */
+  .tools { background: var(--bg-inset); border: 1px solid var(--line); border-radius: var(--radius); padding: 26px 26px 20px; margin-top: 24px; }
+  .tool-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+  .tool-chips span {
+    font-family: var(--mono); font-size: .78rem;
+    border: 1px solid var(--line); background: var(--bg-raise);
+    border-radius: 999px; padding: 5px 12px; color: var(--ink-soft);
+  }
+
+  /* ============ SCENARIUSZE ============ */
+  .demo {
+    background: var(--bg-raise); border: 1px solid var(--line);
+    border-radius: var(--radius); box-shadow: var(--shadow);
+    padding: 26px; margin-top: 30px;
+  }
+  .demo-head { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+  .demo-num {
+    font-family: var(--mono); font-size: .74rem; letter-spacing: .12em;
+    color: var(--accent); text-transform: uppercase; white-space: nowrap;
+  }
+  .demo > .pain { color: var(--ink-soft); font-size: .95rem; margin: 6px 0 18px; }
+  .demo-stage {
+    border: 1px solid var(--line); border-radius: var(--radius);
+    background: var(--bg-inset); padding: 18px;
+  }
+  .demo-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+  .demo-note {
+    font-size: .82rem; color: var(--ink-soft); margin: 14px 0 0;
+    padding-top: 12px; border-top: 1px dashed var(--line);
+  }
+  .demo-note b { color: var(--accent); }
+
+  /* chipy statusów */
+  .chip {
+    display: inline-block; font: 600 .72rem/1 var(--mono);
+    letter-spacing: .04em; padding: 4px 9px; border-radius: 999px; white-space: nowrap;
+  }
+  .chip-ok   { background: var(--ok-soft);   color: var(--ok); }
+  .chip-warn { background: var(--warn-soft); color: var(--warn); }
+  .chip-bad  { background: var(--bad-soft);  color: var(--bad); }
+  .chip-data { background: var(--accent-soft); color: var(--accent); }
+
+  /* --- Demo 1: czytnik zleceń --- */
+  .srcpick { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+  .srcbtn {
+    font: 500 .84rem var(--sans); color: var(--ink);
+    background: var(--bg-raise); border: 1px solid var(--line);
+    border-radius: 999px; padding: 8px 15px; cursor: pointer; text-align: left;
+  }
+  .srcbtn:hover { border-color: var(--accent); color: var(--accent); }
+  .srcbtn.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 600; }
+  .d1-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; align-items: start; }
+  @media (max-width: 820px) { .d1-grid { grid-template-columns: 1fr; } }
+  .doc {
+    background: var(--bg-raise); border: 1px solid var(--line);
+    padding: 20px 18px 18px; font-family: var(--mono); font-size: .76rem; line-height: 1.75;
+    color: var(--ink-soft); border-radius: 3px; position: relative;
+  }
+  .doc-title { text-align: center; color: var(--ink); font-weight: 700; letter-spacing: .06em; margin-bottom: 10px; }
+  .doc .hl { background: var(--accent-soft); color: var(--accent); border-radius: 2px; padding: 0 2px; transition: background .3s; }
+  .doc-label {
+    position: absolute; top: -10px; left: 12px;
+    background: var(--bg-inset); padding: 0 8px;
+    font-size: .66rem; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-soft);
+  }
+  .doc.scan { transform: rotate(-.4deg); }
+  table.mapping { width: 100%; border-collapse: collapse; font-size: .8rem; background: var(--bg-raise); border: 1px solid var(--line); border-radius: 3px; }
+  table.mapping th, table.mapping td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
+  table.mapping th { font-family: var(--mono); font-weight: 500; font-size: .68rem; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-soft); }
+  table.mapping td.src { font-family: var(--mono); color: var(--ink-soft); font-size: .74rem; width: 32%; }
+  table.mapping td.fld { font-family: var(--mono); color: var(--accent); font-size: .74rem; width: 30%; }
+  table.mapping td.val { color: var(--ink); font-size: .78rem; }
+  table.mapping tr.row-in { animation: fadeUp .3s ease both; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { table.mapping tr.row-in { animation: none; } }
+  pre.json {
+    margin: 14px 0 0; padding: 14px 16px; overflow-x: auto;
+    background: var(--bg-raise); border: 1px solid var(--line); border-left: 3px solid var(--accent);
+    border-radius: 3px; font-family: var(--mono); font-size: .74rem; line-height: 1.7; color: var(--ink-soft);
+  }
+  pre.json .jk { color: var(--accent); }
+  pre.json .jv { color: var(--ink); }
+  pre.json .jn { color: var(--data); }
+  .json-cap { font-family: var(--mono); font-size: .68rem; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-soft); margin: 16px 0 0; }
+  .d1-flag {
+    margin-top: 10px; font-size: .8rem; color: var(--ink-soft);
+    background: var(--warn-soft); border-radius: 4px; padding: 9px 12px;
+  }
+  .d1-flag b { color: var(--warn); }
+
+  /* --- Demo 2: bramka jakości --- */
+  .files { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+  .attach { display: inline-flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: .72rem; background: var(--bg-raise); border: 1px solid var(--line); border-radius: 4px; padding: 3px 8px; margin: 2px 4px 0 0; }
+  .scanbar { height: 4px; background: var(--line-soft); border-radius: 2px; overflow: hidden; margin: 6px 0 14px; }
+  .scanbar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .5s ease; }
+  .findings { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  .findings li {
+    background: var(--bg-raise); border: 1px solid var(--line); border-radius: 4px;
+    padding: 10px 13px 10px 16px; font-size: .86rem; position: relative;
+    opacity: 0; transform: translateY(5px); transition: opacity .3s, transform .3s;
+  }
+  .findings li.show { opacity: 1; transform: none; }
+  .findings li::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; border-radius: 4px 0 0 4px; }
+  .findings li.f-bad::before  { background: var(--bad); }
+  .findings li.f-warn::before { background: var(--warn); }
+  .findings li.f-ok::before   { background: var(--ok); }
+  .findings .fk { font-family: var(--mono); font-size: .68rem; text-transform: uppercase; letter-spacing: .07em; display: block; margin-bottom: 3px; }
+  .f-bad .fk { color: var(--bad); } .f-warn .fk { color: var(--warn); } .f-ok .fk { color: var(--ok); }
+  .reg-summary { font-family: var(--mono); font-size: .76rem; color: var(--ink-soft); margin-top: 12px; }
+  .reg-summary b { color: var(--accent); font-weight: 600; }
+  @media (prefers-reduced-motion: reduce) { .findings li { transition: none; transform: none; } }
+
+  /* --- Demo 3: kartoteki --- */
+  .match { overflow-x: auto; }
+  table.match { width: 100%; border-collapse: collapse; font-size: .84rem; }
+  table.match th, table.match td { text-align: left; padding: 9px 11px; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
+  table.match th { font-family: var(--mono); font-size: .68rem; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-soft); font-weight: 500; }
+  table.match td.raw { font-family: var(--mono); font-size: .78rem; color: var(--ink-soft); }
+  table.match td.hit b { font-family: var(--mono); font-weight: 600; }
+  table.match td.hit small { display: block; color: var(--ink-soft); font-size: .76rem; }
+  table.match tr.row-in { animation: fadeUp .3s ease both; }
+  @media (prefers-reduced-motion: reduce) { table.match tr.row-in { animation: none; } }
+
+  /* --- Demo 4: wysyłka do ERP --- */
+  .steps { list-style: none; margin: 0; padding: 0 0 0 22px; position: relative; }
+  .steps::before { content: ""; position: absolute; left: 6px; top: 6px; bottom: 6px; width: 1px; background: var(--line); }
+  .steps li {
+    position: relative; padding: 0 0 14px 0; font-size: .87rem;
+    opacity: 0; transform: translateY(5px); transition: opacity .3s, transform .3s;
+  }
+  .steps li.show { opacity: 1; transform: none; }
+  .steps li::before {
+    content: ""; position: absolute; left: -20px; top: 6px;
+    width: 9px; height: 9px; border-radius: 50%;
+    background: var(--bg-inset); border: 2px solid var(--line);
+  }
+  .steps li.s-ok::before   { border-color: var(--ok); background: var(--ok); }
+  .steps li.s-warn::before { border-color: var(--warn); background: var(--warn); }
+  .steps li.s-bad::before  { border-color: var(--bad); background: var(--bad); }
+  .steps .st { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+  .steps small { display: block; color: var(--ink-soft); font-size: .78rem; margin-top: 2px; }
+  .steps .t { font-family: var(--mono); font-size: .7rem; color: var(--ink-soft); margin-left: auto; }
+  @media (prefers-reduced-motion: reduce) { .steps li { transition: none; transform: none; } }
+  .erpdoc {
+    margin-top: 6px; background: var(--bg-raise); border: 1px solid var(--line);
+    border-left: 3px solid var(--accent); padding: 14px 16px; font-size: .85rem;
+    color: var(--ink-soft); border-radius: 3px;
+  }
+  .erpdoc .mono-line { font-family: var(--mono); font-size: .7rem; color: var(--accent); text-transform: uppercase; letter-spacing: .08em; display: block; margin-bottom: 8px; }
+  .erpdoc b { color: var(--ink); }
+
+  /* --- Demo 5: czat / pytania --- */
+  .chat { display: flex; flex-direction: column; gap: 10px; min-height: 90px; }
+  .msg { max-width: 88%; padding: 10px 14px; border-radius: 10px; font-size: .88rem; opacity: 0; transform: translateY(6px); transition: opacity .35s, transform .35s; }
+  .msg.show { opacity: 1; transform: none; }
+  .msg .who { font-family: var(--mono); font-size: .68rem; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-soft); display: block; margin-bottom: 4px; }
+  .msg-user { align-self: flex-start; background: var(--bg-raise); border: 1px solid var(--line); }
+  .msg-agent { align-self: flex-end; background: var(--accent-soft); border: 1px solid transparent; }
+  .msg-agent .who { color: var(--accent); }
+  .typing { align-self: flex-end; font-family: var(--mono); font-size: .74rem; color: var(--ink-soft); padding: 4px 8px; }
+  .typing::after { content: "▌"; animation: blink 1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) {
+    .msg { transition: none; transform: none; }
+    .typing::after { animation: none; }
+  }
+  .qbtns { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+  .qbtn {
+    font: 500 .84rem var(--sans); color: var(--ink);
+    background: var(--bg-raise); border: 1px solid var(--line);
+    border-radius: 999px; padding: 8px 15px; cursor: pointer; text-align: left;
+  }
+  .qbtn:hover:not([disabled]) { border-color: var(--accent); color: var(--accent); }
+  .qbtn[disabled] { opacity: .45; cursor: default; }
+  .answer b { color: var(--accent); }
+  .answer .num { font-family: var(--mono); font-weight: 600; }
+
+  /* ============ ZAJAWKA KATALOGU ============ */
+  .more-teaser {
+    margin-top: 30px; padding: 22px 26px;
+    border: 1px dashed var(--accent); border-radius: var(--radius);
+    background: var(--accent-soft);
+    display: flex; justify-content: space-between; align-items: center; gap: 18px; flex-wrap: wrap;
+  }
+  .more-teaser p { margin: 0; max-width: 58ch; font-size: .95rem; }
+  .more-teaser .mono-small { font-family: var(--mono); font-size: .7rem; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); display: block; margin-bottom: 4px; }
+
+  /* ============ KATALOG SCENARIUSZY (zakładka 2) ============ */
+  .cat-group { margin-top: 44px; }
+  .cat-group > h3 { font-size: 1.2rem; display: flex; align-items: baseline; gap: 12px; }
+  .cat-group > h3 .mono { font-size: .72rem; color: var(--accent); letter-spacing: .1em; text-transform: uppercase; font-weight: 600; }
+  .cat-group > p { color: var(--ink-soft); font-size: .93rem; margin-bottom: 16px; }
+  details.acc {
+    background: var(--bg-raise); border: 1px solid var(--line);
+    border-radius: var(--radius); margin-bottom: 8px;
+  }
+  details.acc summary {
+    cursor: pointer; padding: 14px 18px;
+    display: flex; gap: 12px; align-items: baseline;
+    list-style: none; font-weight: 600; font-size: .95rem;
+  }
+  details.acc summary::-webkit-details-marker { display: none; }
+  details.acc summary::after {
+    content: "+"; margin-left: auto; flex: 0 0 auto;
+    font-family: var(--mono); font-size: 1rem; color: var(--accent);
+  }
+  details.acc[open] summary::after { content: "−"; }
+  details.acc[open] summary { border-bottom: 1px dashed var(--line); }
+  .acc-body { padding: 14px 18px 16px; font-size: .92rem; color: var(--ink-soft); }
+  .acc-body p { margin: 0 0 10px; max-width: none; }
+  .acc-body p:last-child { margin-bottom: 0; }
+  .acc-body b.k {
+    font-family: var(--mono); font-size: .7rem; letter-spacing: .08em;
+    text-transform: uppercase; font-weight: 600; display: block; margin-bottom: 2px;
+  }
+  .acc-body .k-problem { color: var(--bad); }
+  .acc-body .k-mozliwosc { color: var(--ok); }
+
+  /* ============ DLACZEGO TANIO ============ */
+  .why-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-top: 26px; }
+  .why-cards .card { border-top: 3px solid var(--accent); }
+
+  /* ============ CTA / STOPKA ============ */
+  .cta {
+    margin: 64px 0 0; padding: 44px 36px;
+    background: var(--ink); color: var(--bg); border-radius: var(--radius);
+    text-align: left;
+  }
+  :root[data-theme="dark"] .cta { background: var(--bg-raise); color: var(--ink); border: 1px solid var(--line); }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .cta { background: var(--bg-raise); color: var(--ink); border: 1px solid var(--line); } }
+  .cta h2 { color: inherit; }
+  .cta p { opacity: .85; }
+  .cta .mono-line { font-family: var(--mono); font-size: .76rem; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); margin-bottom: 14px; }
+  footer {
+    margin: 40px 0 0; padding: 26px 0 40px;
+    border-top: 1px solid var(--line);
+    font-size: .8rem; color: var(--ink-soft);
+  }
+  footer .mono { font-size: .7rem; letter-spacing: .06em; }
+</style>
+</head>
+<body>
+<main>
+
+  <nav class="topnav" aria-label="Zakładki">
+    <span class="brand">SPEDYCJA <em>×</em> AI</span>
+    <div class="tablinks">
+      <a href="#start" class="tab" data-view="start">Start</a>
+      <a href="#wiecej" class="tab" data-view="wiecej">Więcej scenariuszy</a>
+    </div>
+  </nav>
+
+<div id="view-start">
+  <!-- ============ HERO ============ -->
+  <header class="hero">
+    <div class="hero-top">
+      <span><strong>DEMO MOŻLIWOŚCI</strong> · LLM + automatyzacja</span>
+      <span>proces: <strong>zlecenie → ERP</strong> · branża: spedycja / TSL</span>
+    </div>
+    <h1>Zlecenie przychodzi tak,<br>jak chce klient. Do ERP trafia tak,<br>jak chce ERP.</h1>
+    <p class="lead">Twoi klienci wysyłają zlecenia transportowe w PDF-ie, w skanie z faksu i w zwykłym mailu napisanym z telefonu. Każdy nazywa pola inaczej — <em>zleceniodawca</em>, <em>buyer</em>, <em>zamawiający</em>, <em>płatnik</em> — a znaczą to samo. Dziś ktoś to czyta i przepisuje do Comarcha. To demo pokazuje, jak wygląda ta sama droga bez przepisywania. Dane są fikcyjne, proces — jak najbardziej realny.</p>
+    <div class="hero-cta">
+      <a class="btn btn-primary" href="#scenariusze">Zobacz 5 scenariuszy</a>
+      <a class="btn" href="#rozmowa">Umów rozmowę</a>
+    </div>
+    <canvas id="heroCanvas" aria-label="Schemat: dokumenty w trzech formatach trafiają do modułu normalizacji pól, następnie jako jeden JSON do systemu Comarch ERP" role="img"></canvas>
+    <p class="hero-canvas-caption">szkic poglądowy · trzy formaty wejścia → jeden schemat pól → dokument w ERP &nbsp;<span style="color:var(--ok)">■</span> pole pewne &nbsp;<span style="color:var(--warn)">■</span> do potwierdzenia przez człowieka</p>
+  </header>
+
+  <!-- ============ PAIN POINTY ============ -->
+  <section id="problemy">
+    <p class="eyebrow">Gdzie naprawdę ucieka czas</p>
+    <h2>Sześć rzeczy, które znasz aż za dobrze</h2>
+    <p class="lead">Żadna z nich nie dotyczy przewozu. Wszystkie dotyczą tego, co dzieje się <em>zanim</em> zlecenie w ogóle stanie się zleceniem w systemie.</p>
+    <div class="grid-cards">
+      <div class="card">
+        <span class="tag">formaty · wejście</span>
+        <h3>Każdy klient pisze inaczej</h3>
+        <p>Jeden przysyła firmowy formularz w PDF, drugi skan wydruku, trzeci trzy zdania w mailu z telefonu. Ta sama informacja, pięćdziesiąt układów. Nie da się tego objąć jednym szablonem — i dlatego robi to człowiek.</p>
+      </div>
+      <div class="card">
+        <span class="tag">etykiety · znaczenie</span>
+        <h3>Te same pola, inne nazwy</h3>
+        <p><span class="mono">Zleceniodawca</span>, <span class="mono">Buyer</span>, <span class="mono">Zamawiający</span>, <span class="mono">Ordering party</span> — jedno pole w Twoim ERP. Do tego <span class="mono">miejsce rozładunku</span> raz jest adresem, raz nazwą oddziału, a raz zdaniem „jak ostatnio".</p>
+      </div>
+      <div class="card">
+        <span class="tag">erp · przepisywanie</span>
+        <h3>Ręczne wklepywanie do Comarcha</h3>
+        <p>Dwanaście pól × kilkadziesiąt zleceń dziennie. Literówka w kodzie pocztowym albo w NIP-ie kosztuje potem godzinę u kogoś innego: w awizacji, w CMR-ce, na fakturze.</p>
+      </div>
+      <div class="card">
+        <span class="tag">braki · dopytywanie</span>
+        <h3>Runda maili o brakujące dane</h3>
+        <p>Brak NIP-u, brak godziny rozładunku, waga „około". Każde takie zlecenie to wątek mailowy na pół dnia — a klient i tak uważa, że zlecenie już złożył.</p>
+      </div>
+      <div class="card">
+        <span class="tag">wersje · duplikaty</span>
+        <h3>„Jednak dwanaście palet"</h3>
+        <p>Zmiana przychodzi w kolejnym mailu w wątku, czasem po zatwierdzeniu w systemie. To samo zlecenie potrafi przyjść dwa razy — raz jako PDF, raz jako treść maila — i zrobić w ERP dwa dokumenty.</p>
+      </div>
+      <div class="card">
+        <span class="tag">sla · nocna skrzynka</span>
+        <h3>Skrzynka pracuje, biuro śpi</h3>
+        <p>Zlecenia z nocy i weekendu czekają do rana, aż ktoś je przeczyta i przepisze. Klient mierzy Twój czas reakcji od momentu wysłania maila, nie od momentu, w którym ktoś usiadł do biurka.</p>
+      </div>
+    </div>
+
+    <div class="tools">
+      <h3>Comarch i TMS zostają na miejscu</h3>
+      <p style="color:var(--ink-soft); font-size:.93rem;">ERP pozostaje systemem prawdy — to w nim powstaje dokument, rozliczenie i faktura. Nie ma sensu tego zastępować ani obchodzić. Możliwości pokazane niżej żyją <em>przed</em> ERP-em i <em>obok</em> niego: w skrzynce mailowej, w załącznikach, w kartotekach i w kontroli danych. Czyli tam, gdzie dziś standardem jest czytanie i przepisywanie.</p>
+      <div class="tool-chips">
+        <span>Comarch ERP XL</span><span>Comarch ERP Optima</span><span>Comarch API / XML</span><span>TMS</span><span>Outlook / Exchange</span><span>Excel</span><span>EDI</span><span>Trans.eu</span><span>TIMOCOM</span><span>WMS</span><span>skaner / OCR</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SCENARIUSZE ============ -->
+  <section id="scenariusze">
+    <p class="eyebrow">Klikalne symulacje</p>
+    <h2>Pięć scenariuszy do przeklikania</h2>
+    <p class="lead">Każda symulacja pokazuje <em>klasę możliwości</em>, nie gotowy produkt — bo sensowne narzędzie musi być uszyte pod Twoich klientów, Twoje pola w Comarchu i Twoje reguły akceptacji.</p>
+
+    <!-- ===== DEMO 1 ===== -->
+    <article class="demo" id="demo1">
+      <div class="demo-head">
+        <span class="demo-num">Scenariusz 1 / 5</span>
+        <h3>Czytnik zleceń — dowolny format, jeden JSON</h3>
+      </div>
+      <p class="pain">Pain point: PDF, skan i mail wyglądają zupełnie inaczej, a mają dać ten sam komplet pól. Wybierz źródło i zobacz, jak etykiety klienta zamieniają się w pola Twojego systemu.</p>
+      <div class="demo-stage">
+        <div class="srcpick" id="d1src" role="group" aria-label="Wybór źródła zlecenia">
+          <button class="srcbtn active" data-src="pdf">📄 PDF · formularz stałego klienta</button>
+          <button class="srcbtn" data-src="skan">🖨 Skan · OCR, klient zagraniczny</button>
+          <button class="srcbtn" data-src="mail">✉️ E-mail · zwykły tekst z telefonu</button>
+        </div>
+        <div class="d1-grid">
+          <div class="doc" id="d1doc"></div>
+          <div>
+            <table class="mapping" aria-label="Mapowanie pól dokumentu na schemat docelowy">
+              <thead>
+                <tr><th>Etykieta u klienta</th><th>Pole docelowe</th><th>Wartość po normalizacji</th></tr>
+              </thead>
+              <tbody id="d1map"></tbody>
+            </table>
+            <div class="d1-flag hidden" id="d1flag"></div>
+          </div>
+        </div>
+        <p class="json-cap hidden" id="d1jsoncap">ładunek wysyłany do Comarch ERP · schemat <span class="mono">zlecenie.v3</span></p>
+        <pre class="json hidden" id="d1json"></pre>
+      </div>
+      <div class="demo-actions">
+        <button class="btn btn-primary" id="d1run">Przetwórz zlecenie</button>
+        <button class="btn hidden" id="d1reset">Od nowa</button>
+      </div>
+      <p class="demo-note"><b>Klasa możliwości:</b> rozpoznawanie <em>znaczenia</em> pól, a nie ich nazw — ten sam model radzi sobie z formularzem, skanem i luźnym mailem, po polsku i po angielsku. Wynikiem jest zawsze jeden, stały schemat danych: gotowy do ERP, do TMS-u i do CMR-ki. Nowy klient z nowym formularzem nie wymaga programowania nowego szablonu.</p>
+    </article>
+
+    <!-- ===== DEMO 2 ===== -->
+    <article class="demo" id="demo2">
+      <div class="demo-head">
+        <span class="demo-num">Scenariusz 2 / 5</span>
+        <h3>Bramka jakości przed ERP</h3>
+      </div>
+      <p class="pain">Pain point: błędne albo niekompletne zlecenie wychodzi na jaw dopiero przy awizacji, u kierowcy albo na fakturze — w najdroższym możliwym momencie.</p>
+      <div class="demo-stage">
+        <div class="files">
+          <span class="attach">📥 skrzynka zlecenia@ · 23 wiadomości z nocy</span>
+          <span class="attach">📎 14 załączników</span>
+          <span class="attach">🕓 00:12 – 06:48</span>
+        </div>
+        <div class="scanbar" aria-hidden="true"><i id="d2bar"></i></div>
+        <ul class="findings" id="d2out" aria-live="polite"></ul>
+        <p class="reg-summary hidden" id="d2sum">skrzynka z nocy przetworzona w <b>4 minuty</b> · <b>18 zleceń</b> gotowych do ERP bez udziału człowieka · <b>5</b> z konkretnym pytaniem do klienta lub dyspozytora — zamiast poranka spędzonego na czytaniu i przepisywaniu</p>
+      </div>
+      <div class="demo-actions">
+        <button class="btn btn-primary" id="d2run">Sprawdź nocną skrzynkę</button>
+        <button class="btn hidden" id="d2reset">Od nowa</button>
+      </div>
+      <p class="demo-note"><b>Klasa możliwości:</b> reguły kontrolne pisane pod Twoją firmę — kompletność pól, sprzeczności (waga vs liczba palet), duplikaty i wersje tego samego zlecenia, terminy nie do wykonania. To, co da się rozstrzygnąć automatycznie, jedzie dalej; to, co wymaga decyzji, trafia do człowieka z gotowym pytaniem i propozycją odpowiedzi.</p>
+    </article>
+
+    <!-- ===== DEMO 3 ===== -->
+    <article class="demo" id="demo3">
+      <div class="demo-head">
+        <span class="demo-num">Scenariusz 3 / 5</span>
+        <h3>Dopasowanie do kartotek Comarcha</h3>
+      </div>
+      <p class="pain">Pain point: „MEBLE EX sp.z o.o.", „Meble-Ex Sp. z o. o." i „MEBLEEX" to ten sam kontrahent — ale w ERP potrafią być trzema kartotekami i trzema historiami rozliczeń.</p>
+      <div class="demo-stage">
+        <div class="match">
+          <table class="match" aria-label="Dopasowanie danych ze zlecenia do kartotek w ERP">
+            <thead>
+              <tr><th>Z dokumentu</th><th>Kartoteka w Comarchu</th><th>Podstawa dopasowania</th><th>Status</th></tr>
+            </thead>
+            <tbody id="d3out"></tbody>
+          </table>
+        </div>
+        <p class="reg-summary hidden" id="d3sum">dopasowanie po <b>NIP / VAT UE, adresie i historii zleceń</b> — nie po samej nazwie · nowe kartoteki powstają jako <b>propozycje do akceptacji</b>, nigdy same z siebie</p>
+      </div>
+      <div class="demo-actions">
+        <button class="btn btn-primary" id="d3run">Dopasuj do kartotek</button>
+        <button class="btn hidden" id="d3reset">Od nowa</button>
+      </div>
+      <p class="demo-note"><b>Klasa możliwości:</b> warstwa dopasowania między tekstem od klienta a słownikami ERP — kontrahenci, adresy dostaw, usługi transportowe, grupy ładunku, warunki płatności. Z podpięciem do GUS/VIES przy nowych podmiotach i z zasadą: przy niskiej pewności pyta, zamiast zgadywać.</p>
+    </article>
+
+    <!-- ===== DEMO 4 ===== -->
+    <article class="demo" id="demo4">
+      <div class="demo-head">
+        <span class="demo-num">Scenariusz 4 / 5</span>
+        <h3>Wysyłka do Comarcha i potwierdzenie dla klienta</h3>
+      </div>
+      <p class="pain">Pain point: między „mail przyszedł" a „dokument jest w systemie, klient dostał potwierdzenie" siedzi człowiek. W nocy, w sobotę i w szczycie sezonu — nie siedzi.</p>
+      <div class="demo-stage">
+        <ol class="steps" id="d4out" aria-live="polite"></ol>
+        <div class="erpdoc hidden" id="d4doc">
+          <span class="mono-line">Comarch ERP XL · dokument utworzony</span>
+          <b>ZS/2026/08/141</b> · kontrahent <b>K/0042 MEBLE-EX Sp. z o.o.</b> · relacja Wągrowiec (PL) → Dortmund (DE)<br>
+          12 × EUR · 4 800 kg · załadunek 18.08.2026, 08:00–12:00 · fracht 1 350 EUR<br>
+          załączniki: <span class="mono">zlecenie_141.pdf</span>, <span class="mono">zlecenie_141.json</span> · status: <span class="chip chip-warn">do przypisania przewoźnika</span>
+        </div>
+      </div>
+      <div class="demo-actions">
+        <button class="btn btn-primary" id="d4run">Wyślij zlecenie do ERP</button>
+        <button class="btn hidden" id="d4reset">Od nowa</button>
+      </div>
+      <p class="demo-note"><b>Klasa możliwości:</b> integracja z API Comarcha z pełną obsługą tego, co idzie nie tak — walidacja słowników przed wysyłką, automatyczna korekta typowych odrzuceń, ponowienia, a przy realnym problemie zadanie dla człowieka zamiast cichego błędu. Plus to, o czym łatwo zapomnieć: natychmiastowe potwierdzenie dla klienta z numerem dokumentu, o 3:00 w nocy.</p>
+    </article>
+
+    <!-- ===== DEMO 5 ===== -->
+    <article class="demo" id="demo5">
+      <div class="demo-head">
+        <span class="demo-num">Scenariusz 5 / 5</span>
+        <h3>Zapytaj o zlecenia</h3>
+      </div>
+      <p class="pain">Pain point: odpowiedź na proste pytanie o stan zleceń wymaga otwarcia ERP, skrzynki i dwóch Exceli. Kliknij pytanie:</p>
+      <div class="demo-stage">
+        <div class="qbtns" id="d5btns">
+          <button class="qbtn" data-q="0">Które zlecenia z nocy czekają na moją decyzję?</button>
+          <button class="qbtn" data-q="1">Ile zleceń od PROFIL-OKNA w tym miesiącu i ile zmieniali po przyjęciu?</button>
+          <button class="qbtn" data-q="2">Czy zlecenie ZS/2026/08/141 ma komplet dokumentów?</button>
+        </div>
+        <div class="chat" id="d5chat" aria-live="polite"></div>
+      </div>
+      <div class="demo-actions">
+        <button class="btn hidden" id="d5reset">Od nowa</button>
+      </div>
+      <p class="demo-note"><b>Klasa możliwości:</b> jeden asystent nad danymi z ERP, skrzynki i załączników. Pytasz po polsku, odpowiedź przychodzi z liczbami i źródłem — także z telefonu, w drodze. Bez eksportów do Excela i bez „dopytam dziewczyn z operacji".</p>
+    </article>
+
+    <div class="more-teaser">
+      <p><span class="mono-small">poziom drugi · dla zainteresowanych</span>To tylko wejście do procesu. Zebraliśmy <b>16 kolejnych scenariuszy</b> — od zmian w wątku mailowym i awizacji, przez CMR i POD-y od kierowców, po kontrolę faktur przewoźników i raporty SLA.</p>
+      <a class="btn btn-primary" href="#wiecej">Zobacz katalog scenariuszy</a>
+    </div>
+  </section>
+
+  <!-- ============ DLACZEGO TANIO ============ -->
+  <section id="dlaczego">
+    <p class="eyebrow">Ekonomia rozwiązania</p>
+    <h2>Dlaczego to jest szybkie i tanie</h2>
+    <p class="lead">Te scenariusze nie wymagają projektu IT z korporacyjnym budżetem ani wymiany systemu. Programowanie agentowe — oprogramowanie pisane przez AI pod nadzorem inżyniera — zmienia ekonomię narzędzi szytych na miarę.</p>
+    <div class="why-cards">
+      <div class="card">
+        <h3>Dni, nie kwartały</h3>
+        <p>Prototyp na Twojej skrzynce i Twoich prawdziwych zleceniach powstaje w dni. Po pierwszym tygodniu widać, ile procent maili przechodzi bez dotknięcia — a nie po roku wdrożenia.</p>
+      </div>
+      <div class="card">
+        <h3>Bez wymiany ERP</h3>
+        <p>Comarch zostaje. Automatyzacja podłącza się do niego przez API i pilnuje wejścia. Płacisz za jeden rozwiązany proces, nie za platformę „do wszystkiego" z licencją na lata.</p>
+      </div>
+      <div class="card">
+        <h3>Nowy klient? Zmiana od ręki</h3>
+        <p>Nowy format zlecenia, nowe pole w ERP, nowy rynek i nowe wymagania dokumentowe — dostosowanie liczy się w godzinach. Narzędzie nadąża za sprzedażą, a nie odwrotnie.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ CTA ============ -->
+  <section id="rozmowa" style="padding-bottom:0;">
+    <div class="cta">
+      <p class="mono-line">następny krok · 30 minut</p>
+      <h2>Zobaczyłeś coś znajomego?</h2>
+      <p>Umówmy się na pół godziny. Ty pokazujesz swoje dwadzieścia ostatnich zleceń — takie, jakie naprawdę przyszły, z całym bałaganem — my wracamy z działającym prototypem, który zamienia je w gotowe dokumenty. Bez zobowiązań, bez prezentacji w PowerPoincie. Jeśli prototyp nie oszczędza czasu, temat umiera śmiercią naturalną.</p>
+    </div>
+  </section>
+
+  </div><!-- /view-start -->
+
+  <!-- ============ ZAKŁADKA 2: KATALOG SCENARIUSZY ============ -->
+  <div id="view-wiecej" hidden>
+    <section style="padding-top:40px;">
+      <p class="eyebrow">Poziom drugi · katalog</p>
+      <h2>16 kolejnych scenariuszy</h2>
+      <p class="lead">Pięć symulacji na stronie startowej dotyczy jednego odcinka: od maila do dokumentu w ERP. Poniżej pełniejszy katalog miejsc, w których spedycja krwawi czasem — pogrupowany tak, jak wygląda dzień pracy: skrzynka, ERP, operacje, klienci. Rozwiń to, co brzmi znajomo.</p>
+
+      <div class="cat-group">
+        <h3><span class="mono">A</span> Skrzynka i dokumenty wejściowe</h3>
+        <p>Wszystko, co dzieje się między wiadomością od klienta a decyzją, że to w ogóle jest zlecenie.</p>
+
+        <details class="acc">
+          <summary>Zmiana zlecenia w wątku mailowym</summary>
+          <div class="acc-body">
+            <p><b class="k k-problem">Problem</b>Klient dopisuje „jednak 12 palet, załadunek godzinę później" trzy maile niżej, czasem po zatwierdzeniu dokumentu. Ktoś musi zauważyć, porównać i poprawić w ERP — albo kierowca jedzie po stare dane.</p>
+            <p><b class="k k-mozliwosc">Możliwość</b>Wątek czytany jako całość: system rozpoznaje, że to zmiana istniejącego zlecenia, pokazuje różnicę wersja-do-wersji (co dokładnie się zmieniło) i przygotowuje korektę dokumentu w Comarchu — z alertem, jeśli zmiana przyszła po awizacji lub po wyjeździe auta.</p>
+          </div>
+        </details>
+        <details class="acc">
+          <summary>Załączniki: packing lista, specyfikacja w Excelu, karta ADR</summary>
+          <div class="acc-body">
+            <p><b class="k k-problem">Problem</b>Połowa danych o ładunku siedzi nie w treści zlecenia, tylko w załączonym Excelu albo w PDF-ie od producenta. Wymiary, liczba kartonów, klasa ADR — przepisywane ręcznie albo pomijane do czasu, aż kierowca stanie pod rampą.</p>
+            <p><b class="k k-mozliwosc">Możliwość</b>Załączniki czytane razem ze zleceniem: pozycje z packing listy sumowane do wagi i liczby jednostek, sprawdzenie zgodności z treścią maila, wyciągnięcie klasy ADR i wymagań temperaturowych do pól ERP i do dokumentów przewozowych.</p>
+          </div>
+        </details>
+        <details class="acc">
+          <summary>Zlecenia telefoniczne i głosowe</summary>
+          <div class="acc-body">
+            <p><b class="k k-problem">Problem</b>Część klientów po prostu dzwoni albo wysyła głosówkę na WhatsAppie. Notatka na kartce, potem przepisanie, a przy sporze nie ma czego pokazać.</p>
+            <p><b class="k k-mozliwosc">Możliwość</b>Transkrypcja nagrania i wypełnienie tego samego schematu zlecenia co z PDF-a, z automatycznym mailem zwrotnym „tak zrozumieliśmy zlecenie, potwierdź" — który staje się dowodem i jednocześnie zamyka temat braków.</p>
+          </div>
+        </details>
+        <details class="acc">
+          <summary>Segregacja skrzynki: zlecenie, zapytanie o stawkę, reklamacja</summary>
+          <div class="acc-body">
+            <p><b class="k k-problem">Problem</b>Na jeden adres wpada wszystko: nowe zlecenia, pytania o stawkę, awizacje, reklamacje, faktury, spam z giełd. Rozdzielanie tego to pierwsza godzina dnia dyspozytora.</p>
+            <p><b class="k k-mozliwosc">Możliwość</b>Automatyczna klasyfikacja i routing do właściwej osoby lub procesu, z priorytetem liczonym z treści (deadline, wartość klienta, ryzyko kary). Rano widzisz posortowaną kolejkę, nie skrzynkę.</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="cat-group">
+        <h3><span class="mono">B</span> Dane i integracja z ERP</h3>
+        <p>Styk z Comarchem — tam, gdzie dziś jest przepisywanie i porządkowanie kartotek.</p>
+
+        <details class="acc">
+          <summary>Kartoteki bez duplikatów</summary>
+          <div class="acc-body">
+            <p><b class="k k-problem">Problem</b>Ten sam kontrahent w trzech wariantach nazwy, adresy dostaw dopisywane „na szybko", literówki w NIP-ach. Raporty sprzedaży kłamią, limity kredytowe pilnują nie tego, co trzeba.</p>
+            <p><b class="k k-mozliwosc">Możliwość</b>Ciągła deduplikacja i porządkowanie kartotek: wykrywanie par-bliźniaków, weryfikacja danych w GUS i VIES, propozycje scaleń z podglądem skutków. Nowe karty zakładane z kompletem danych, a nie z samą nazwą.</p>
+          </div>
+        </details>
+        <details class="acc">
+          <summary>Statusy w dwie strony</summary>
+          <div class="acc-body">
+            <p><b class="k k-problem">Problem</b>Status zlecenia żyje w ERP albo w TMS-ie, a klient pyta mailem. Odpowiedź wymaga zalogowania się i sprawdzenia — kilkanaście razy dziennie.</p>
+            <p><b class="k k-mozliwosc">Możliwość</b>Synchronizacja statusów i automatyczne odpowiedzi na pytania „gdzie jest mój towar" na podstawie danych z systemu, z eskalacją do człowieka tylko wtedy, gdy coś odbiega od planu.</p>
+          </div>
+        </details>
+        <details class="acc">
+          <summary>Kontrola stawek względem cennika i umowy</summary>
+          <div class="acc-body">
+            <p><b class="k k-problem">Problem</b>Klient wpisuje w zleceniu stawkę sprzed pół roku albo pomija dopłaty (winda, awizacja, ADR, postojowe). Różnica wychodzi przy fakturze — czyli za późno na rozmowę.</p>
+            <p><b class="k k-mozliwosc">Możliwość</b>Automatyczne porównanie stawki ze zlecenia z cennikiem, umową i historią tej relacji; rozbieżność sygnalizowana od razu, z gotowym uzasadnieniem do maila zwrotnego.</p>
+          </div>
+        </details>
+        <details class="acc">
+          <summary>Dokumenty dopięte do dokumentu w ERP</summary>
+          <div class="acc-body">
+            <p><b class="k k-problem">Problem</b>Oryginał zlecenia, korespondencja, CMR i POD leżą w mailu, na dysku i w segregatorze. Przy reklamacji albo kontroli zbiera się je pół dnia.</p>
+            <p><b class="k k-mozliwosc">Możliwość</b>Każdy dokument automatycznie powiązany z numerem zlecenia w Comarchu — z nazwą, datą i źródłem. Komplet dowodowy sam się kompletuje w trakcie realizacji.</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="cat-group">
+        <h3><span class="mono">C</span> Operacje i dokumenty przewozowe</h3>
+        <p>To, co dzieje się po przyjęciu zlecenia — i co da się wygenerować z tych samych danych.</p>
+
+        <details class="acc">
+          <summary>CMR i komplet przewozowy z jednego źródła</summary>
+          <div class="acc-body">
+            <p><b class="k k-problem">Problem</b>CMR, zlecenie dla przewoźnika i awizacja wypełniane osobno, ręcznie, na podstawie tych samych danych. Każde przepisanie to okazja do rozjazdu między dokumentami.</p>
+            <p><b class="k k-mozliwosc">Możliwość</b>Wszystkie dokumenty generowane z tego samego schematu zlecenia, w formatach oczekiwanych przez odbiorcę — a rozjazd między dokumentami przestaje być fizycznie możliwy.</p>
+          </div>
+        </details>
+        <details class="acc">
+          <summary>Awizacja u odbiorcy</summary>
+          <div class="acc-body">
+            <p><b class="k k-problem">Problem</b>Każdy magazyn ma swój portal albo swój formularz awizacyjny i swoje okna czasowe. Rezerwacja slotu to ręczne wypełnianie tych samych danych po raz trzeci.</p>
+            <p><b class="k k-mozliwosc">Możliwość</b>Automatyczne przygotowanie i wysłanie awizacji w formacie danego odbiorcy, pilnowanie potwierdzenia slotu i alert, gdy okno czasowe nie zgadza się z czasem przejazdu.</p>
+          </div>
+        </details>
+        <details class="acc">
+          <summary>POD-y i skany od kierowców</summary>
+          <div class="acc-body">
+            <p><b class="k k-problem">Problem</b>Zdjęcia listów przewozowych przychodzą na WhatsApp bez opisu, w losowej jakości. Dopięcie ich do właściwego zlecenia — i potem do faktury — robi człowiek.</p>
+            <p><b class="k k-mozliwosc">Możliwość</b>Odczyt numeru zlecenia i daty ze zdjęcia, automatyczne podpięcie do dokumentu w ERP, wykrycie zastrzeżeń wpisanych w CMR-ce oraz alert o brakującym POD przed wystawieniem faktury.</p>
+          </div>
+        </details>
+        <details class="acc">
+          <summary>Ryzyka ładunku wykryte przy przyjęciu</summary>
+          <div class="acc-body">
+            <p><b class="k k-problem">Problem</b>ADR, gabaryt, temperatura, zakazy ruchu w weekend w DE i AT — wychodzą, gdy auto już jedzie albo gdy przewoźnik odmawia. Wtedy jest to problem, a nie informacja.</p>
+            <p><b class="k k-mozliwosc">Możliwość</b>Analiza ładunku i trasy w momencie przyjęcia zlecenia: wymagane zezwolenia, ograniczenia ruchu, wymagania sprzętowe. Dyspozytor dostaje ostrzeżenie, zanim obieca klientowi termin.</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="cat-group">
+        <h3><span class="mono">D</span> Klienci, rozliczenia, zarząd</h3>
+        <p>Wszystko wokół zlecenia: oferty, reklamacje, pieniądze i raporty.</p>
+
+        <details class="acc">
+          <summary>Zapytanie ofertowe wycenione z historii</summary>
+          <div class="acc-body">
+            <p><b class="k k-problem">Problem</b>Zapytania o stawkę przychodzą tak samo bałaganiarsko jak zlecenia, a odpowiedź trzeba dać w godzinę, bo klient pyta trzech spedytorów naraz.</p>
+            <p><b class="k k-mozliwosc">Możliwość</b>Odczyt relacji i parametrów ładunku z zapytania, zestawienie z historią zrealizowanych przewozów na tej trasie i aktualnymi stawkami rynkowymi — gotowy szkic oferty do zatwierdzenia w kilka minut.</p>
+          </div>
+        </details>
+        <details class="acc">
+          <summary>Reklamacje z kompletem dowodów</summary>
+          <div class="acc-body">
+            <p><b class="k k-problem">Problem</b>Uszkodzenie palety uruchamia grzebanie w mailach, zdjęciach i CMR-kach sprzed miesiąca. Termin na zgłoszenie do ubezpieczyciela biegnie.</p>
+            <p><b class="k k-mozliwosc">Możliwość</b>Automatyczne zebranie całej historii zlecenia — korespondencji, dokumentów, zdjęć, zastrzeżeń w CMR — w jedną teczkę sprawy, z projektem pisma i pilnowaniem terminów.</p>
+          </div>
+        </details>
+        <details class="acc">
+          <summary>Kontrola faktur przewoźników</summary>
+          <div class="acc-body">
+            <p><b class="k k-problem">Problem</b>Faktura od przewoźnika przychodzi z inną kwotą niż uzgodniona, z dopłatami bez uzasadnienia albo za zlecenie, którego nie było. Sprawdzanie pozycja po pozycji nikomu się nie opłaca — więc się go nie robi.</p>
+            <p><b class="k k-mozliwosc">Możliwość</b>Automatyczne zestawienie każdej faktury ze zleceniem i uzgodnioną stawką, wychwycenie różnic i duplikatów, gotowa lista pozycji do reklamacji. To scenariusz, który zwykle spłaca się sam w pierwszym miesiącu.</p>
+          </div>
+        </details>
+        <details class="acc">
+          <summary>Raport SLA — dla klienta i dla zarządu</summary>
+          <div class="acc-body">
+            <p><b class="k k-problem">Problem</b>Zestawienia terminowości, liczby zleceń i marż powstają ręcznie w Excelu, zwykle w piątek po godzinach i zawsze w innym układzie niż poprzednio.</p>
+            <p><b class="k k-mozliwosc">Możliwość</b>Raporty liczone wprost z danych z ERP i skrzynki: terminowość, czas reakcji na zlecenie, udział zleceń wymagających dopytania, rentowność relacji. Klient dostaje swój widok, zarząd swój — cyklicznie i bez niczyjego piątkowego wieczoru.</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="more-teaser" style="margin-top:48px;">
+        <p><span class="mono-small">żaden nie pasuje?</span>Ten katalog nie jest zamknięty. Najlepsze scenariusze zawsze wychodzą z rozmowy o <b>Twoim</b> konkretnym dniu pracy — opowiedz nam o nim.</p>
+        <a class="btn btn-primary" href="#rozmowa">Umów rozmowę</a>
+      </div>
+    </section>
+  </div><!-- /view-wiecej -->
+
+  <footer>
+    <p class="mono">Wszystkie dane, nazwy firm, adresy, numery NIP i dokumenty w tym demie są fikcyjne — zbieżność przypadkowa. Demo poglądowe: pokazuje klasę możliwości, nie gotowy produkt. Comarch ERP to znak towarowy Comarch S.A.; demo nie jest z tą firmą powiązane.</p>
+  </footer>
+</main>
+
+<script>
+(function () {
+  "use strict";
+  var RM = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  function sleep(ms) { return new Promise(function (r) { setTimeout(r, RM ? 0 : ms); }); }
+  function $(id) { return document.getElementById(id); }
+
+  /* ============ HERO CANVAS ============ */
+  var canvas = $("heroCanvas");
+  function cssVar(name) {
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  }
+  function rr(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y); ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r); ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h); ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r); ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+  }
+  function arrow(ctx, x1, y1, x2, y2, color) {
+    ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = 1;
+    var mx = (x1 + x2) / 2;
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.bezierCurveTo(mx, y1, mx, y2, x2 - 6, y2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x2, y2); ctx.lineTo(x2 - 6, y2 - 3.2); ctx.lineTo(x2 - 6, y2 + 3.2);
+    ctx.closePath(); ctx.fill();
+  }
+  function drawHero() {
+    var dpr = window.devicePixelRatio || 1;
+    var w = canvas.clientWidth, h = canvas.clientHeight;
+    if (!w || !h) return;
+    canvas.width = w * dpr; canvas.height = h * dpr;
+    var ctx = canvas.getContext("2d");
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+
+    var line = cssVar("--line"), ink = cssVar("--ink-soft"),
+        accent = cssVar("--accent"), ok = cssVar("--ok"), warn = cssVar("--warn");
+    var small = w < 620;
+    ctx.font = (small ? "600 8px " : "600 9px ") + "ui-monospace, monospace";
+    ctx.textBaseline = "middle";
+
+    var docW = Math.max(48, Math.min(104, w * 0.155)), docH = docW * 0.58;
+    var docX = w * 0.025;
+    var ys = [h * 0.22, h * 0.5, h * 0.78];
+    var labels = ["PDF", "SKAN", "E-MAIL"];
+    // trzy dokumenty wejściowe, każdy z innym układem "pól"
+    for (var i = 0; i < 3; i++) {
+      var y = ys[i] - docH / 2;
+      ctx.save();
+      if (i === 1) { ctx.translate(docX + docW / 2, ys[i]); ctx.rotate(-0.035); ctx.translate(-(docX + docW / 2), -ys[i]); }
+      ctx.fillStyle = cssVar("--bg-raise"); ctx.strokeStyle = line; ctx.lineWidth = 1;
+      rr(ctx, docX, y, docW, docH, 3); ctx.fill(); ctx.stroke();
+      // wiersze tekstu w dokumencie — inny układ dla każdego formatu
+      ctx.strokeStyle = ink; ctx.globalAlpha = 0.45;
+      var rows = i === 2 ? 3 : 4;
+      for (var r2 = 0; r2 < rows; r2++) {
+        var ry = y + 11 + r2 * ((docH - 16) / rows);
+        var rw = (docW - 16) * (i === 2 ? [0.92, 0.7, 0.5][r2] : [0.45, 0.85, 0.6, 0.75][r2]);
+        ctx.beginPath(); ctx.moveTo(docX + 8, ry); ctx.lineTo(docX + 8 + rw, ry); ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+      ctx.restore();
+      ctx.fillStyle = ink;
+      ctx.fillText(labels[i], docX + 2, y - 8);
+    }
+
+    var boxTop = h * 0.14, boxH = h * 0.72;
+    var normX = w * 0.34, normW = Math.max(72, w * 0.15);
+    var jsonX = w * 0.575, jsonW = Math.max(60, w * 0.115);
+    var erpX = w * 0.79, erpW = Math.max(74, w * 0.17);
+
+    // blok normalizacji
+    ctx.setLineDash([4, 3]); ctx.strokeStyle = accent; ctx.lineWidth = 1.2;
+    ctx.fillStyle = cssVar("--accent-soft");
+    rr(ctx, normX, boxTop, normW, boxH, 4); ctx.fill(); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = accent; ctx.textAlign = "center";
+    ctx.fillText("MAPOWANIE", normX + normW / 2, h * 0.42);
+    ctx.fillText("PÓL", normX + normW / 2, h * 0.42 + 12);
+    ctx.fillStyle = ink;
+    ctx.fillText("znaczenie,", normX + normW / 2, h * 0.60);
+    ctx.fillText("nie etykieta", normX + normW / 2, h * 0.60 + 12);
+    ctx.textAlign = "left";
+
+    // strzałki: dokumenty -> normalizacja
+    for (var a = 0; a < 3; a++) {
+      arrow(ctx, docX + docW + 4, ys[a], normX - 2, h * 0.5, ink);
+    }
+
+    // blok JSON
+    ctx.fillStyle = cssVar("--bg-raise"); ctx.strokeStyle = line; ctx.lineWidth = 1;
+    var jsonY = h * 0.30, jsonH = h * 0.40;
+    rr(ctx, jsonX, jsonY, jsonW, jsonH, 4); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = accent; ctx.textAlign = "center";
+    ctx.font = "700 15px ui-monospace, monospace";
+    ctx.fillText("{ }", jsonX + jsonW / 2, jsonY + jsonH * 0.36);
+    ctx.font = (small ? "600 8px " : "600 9px ") + "ui-monospace, monospace";
+    ctx.fillStyle = ink;
+    ctx.fillText("zlecenie.v3", jsonX + jsonW / 2, jsonY + jsonH * 0.72);
+    ctx.textAlign = "left";
+    // znaczniki pewności pól
+    var dotY = jsonY + jsonH + 14;
+    var dots = [ok, ok, ok, warn, ok, ok];
+    for (var d = 0; d < dots.length; d++) {
+      ctx.fillStyle = dots[d];
+      ctx.beginPath();
+      ctx.arc(jsonX + 6 + d * ((jsonW - 12) / (dots.length - 1)), dotY, 2.6, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    arrow(ctx, normX + normW + 2, h * 0.5, jsonX - 2, h * 0.5, accent);
+
+    // blok ERP
+    ctx.fillStyle = cssVar("--bg-raise"); ctx.strokeStyle = accent; ctx.lineWidth = 1.6;
+    var erpY = h * 0.26, erpH = h * 0.48;
+    rr(ctx, erpX, erpY, erpW, erpH, 4); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = accent; ctx.textAlign = "center";
+    ctx.fillText("COMARCH", erpX + erpW / 2, erpY + erpH * 0.34);
+    ctx.fillText("ERP", erpX + erpW / 2, erpY + erpH * 0.34 + 12);
+    ctx.fillStyle = ok;
+    ctx.fillText("ZS/2026/08/141", erpX + erpW / 2, erpY + erpH + 14);
+    ctx.textAlign = "left";
+    arrow(ctx, jsonX + jsonW + 2, h * 0.5, erpX - 2, h * 0.5, accent);
+  }
+  drawHero();
+  window.addEventListener("resize", drawHero);
+  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", drawHero);
+  new MutationObserver(drawHero).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+  /* ============ ZAKŁADKI ============ */
+  var currentView = null;
+  function route() {
+    var v = location.hash === "#wiecej" ? "wiecej" : "start";
+    var changed = v !== currentView;
+    currentView = v;
+    $("view-start").hidden = v !== "start";
+    $("view-wiecej").hidden = v !== "wiecej";
+    document.querySelectorAll(".tab").forEach(function (a) {
+      a.classList.toggle("active", a.dataset.view === v);
+    });
+    if (!changed) return; // kotwice wewnątrz widoku obsługuje przeglądarka
+    if (v === "start") requestAnimationFrame(drawHero);
+    var target = null;
+    if (location.hash && location.hash !== "#wiecej" && location.hash !== "#start") {
+      target = document.querySelector(location.hash);
+    }
+    if (target) target.scrollIntoView();
+    else window.scrollTo(0, 0);
+  }
+  window.addEventListener("hashchange", route);
+  route();
+
+  /* ============ DEMO 1: CZYTNIK ZLECEŃ ============ */
+  function colorJson(s) {
+    s = s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+    return s.replace(/("(?:[^"\\]|\\.)*")(\s*:)?|\b(-?\d+(?:\.\d+)?|true|false|null)\b/g,
+      function (m, str, colon, num) {
+        if (str) return '<span class="' + (colon ? "jk" : "jv") + '">' + str + "</span>" + (colon || "");
+        return '<span class="jn">' + num + "</span>";
+      });
+  }
+
+  var d1data = {
+    pdf: {
+      cls: "doc",
+      doc:
+        '<span class="doc-label">PDF · formularz stałego klienta</span>' +
+        '<div class="doc-title">ZLECENIE SPEDYCYJNE nr 141/08/2026</div>' +
+        "MEBLE-EX Sp. z o.o. · Wągrowiec<br>" +
+        'Zleceniodawca: <span data-f="klient">MEBLE-EX Sp. z o.o., NIP 7792351148</span><br>' +
+        'Miejsce załadunku: <span data-f="zaladunek">ul. Przemysłowa 4, 62-100 Wągrowiec</span><br>' +
+        'Data i godz. załadunku: <span data-f="termin">18.08.2026, 08:00–12:00</span><br>' +
+        'Miejsce rozładunku: <span data-f="rozladunek">Lagerstraße 22, 44145 Dortmund (DE)</span><br>' +
+        'Ładunek: <span data-f="towar">12 palet EUR, meble tapicerowane</span><br>' +
+        'Waga brutto: <span data-f="waga">4 800 kg</span><br>' +
+        "Uwagi: winda / rozładunek boczny, awizacja 24 h wcześniej<br>" +
+        "Stawka uzgodniona: 1 350 EUR",
+      rows: [
+        ["Zleceniodawca", "kontrahent.nazwa + nip", "MEBLE-EX Sp. z o.o. · 7792351148", "klient", "ok", "99%"],
+        ["Miejsce załadunku", "zaladunek.adres", "ul. Przemysłowa 4, 62-100 Wągrowiec, PL", "zaladunek", "ok", "99%"],
+        ["Data i godz. załadunku", "zaladunek.okno", "2026-08-18 · 08:00–12:00", "termin", "ok", "98%"],
+        ["Miejsce rozładunku", "rozladunek.adres", "Lagerstraße 22, 44145 Dortmund, DE", "rozladunek", "ok", "99%"],
+        ["Ładunek", "ladunek.jednostki + opis", "12 × EUR · meble tapicerowane", "towar", "ok", "97%"],
+        ["Waga brutto", "ladunek.wagaKg", "4800", "waga", "ok", "99%"]
+      ],
+      flag: null,
+      json:
+        "{\n" +
+        '  "zrodlo":     { "typ": "pdf", "plik": "zlecenie_141_08_2026.pdf", "odebrano": "2026-08-14T23:12+02:00" },\n' +
+        '  "kontrahent": { "nazwa": "MEBLE-EX Sp. z o.o.", "nip": "7792351148", "kartotekaERP": "K/0042" },\n' +
+        '  "zaladunek":  { "adres": "ul. Przemysłowa 4", "miasto": "Wągrowiec", "kod": "62-100", "kraj": "PL",\n' +
+        '                  "od": "2026-08-18T08:00", "do": "2026-08-18T12:00" },\n' +
+        '  "rozladunek": { "adres": "Lagerstraße 22", "miasto": "Dortmund", "kod": "44145", "kraj": "DE" },\n' +
+        '  "ladunek":    { "jednostki": 12, "typJednostki": "EUR", "opis": "meble tapicerowane",\n' +
+        '                  "wagaKg": 4800, "adr": false },\n' +
+        '  "wymagania":  ["winda", "rozladunek_boczny", "awizacja_24h"],\n' +
+        '  "fracht":     { "kwota": 1350, "waluta": "EUR" },\n' +
+        '  "pewnosc":    { "min": 0.97, "doPotwierdzenia": [] }\n' +
+        "}"
+    },
+    skan: {
+      cls: "doc scan",
+      doc:
+        '<span class="doc-label">skan · OCR · klient zagraniczny</span>' +
+        '<div class="doc-title">TRANSPORT ORDER</div>' +
+        'Ordering party / Buyer: <span data-f="klient">NORDIC FURNITURE AB, VAT SE556743219801</span><br>' +
+        'Collection from: <span data-f="zaladunek">Hamnvägen 8, 211 20 Malmö, Sweden</span><br>' +
+        'Ready for pick-up: <span data-f="termin">19 Aug 2026, after 10 AM</span><br>' +
+        'Deliver to (consignee): <span data-f="rozladunek">BOMEB GmbH, Ind ustrieweg 6, 5911 KJ Venlo, NL</span><br>' +
+        'Goods: <span data-f="towar">8 pll, flat pack fumiture</span><br>' +
+        'Gross weight: <span data-f="waga">3 2OO kg</span><br>' +
+        "Terms: DAP · your ref. NF-2026-4471",
+      rows: [
+        ["Ordering party / Buyer", "kontrahent.nazwa + vatUE", "NORDIC FURNITURE AB · SE556743219801", "klient", "ok", "97%"],
+        ["Collection from", "zaladunek.adres", "Hamnvägen 8, 211 20 Malmö, SE", "zaladunek", "ok", "96%"],
+        ["Ready for pick-up", "zaladunek.okno", "2026-08-19 · od 10:00", "termin", "ok", "94%"],
+        ["Deliver to (consignee)", "rozladunek.adres + odbiorca", "BOMEB GmbH · Industrieweg 6, 5911 KJ Venlo, NL", "rozladunek", "warn", "88%"],
+        ["Goods", "ladunek.jednostki + opis", "8 × paleta · meble w paczkach płaskich", "towar", "ok", "93%"],
+        ["Gross weight", "ladunek.wagaKg", "3200 (OCR: „3 2OO kg\")", "waga", "warn", "71%"]
+      ],
+      flag: "<b>Do potwierdzenia przez człowieka (2 pola):</b> OCR odczytał wagę jako <span class=\"mono\">3 2OO kg</span> — litera „O\" zamiast zera; propozycja <span class=\"mono\">3200 kg</span> mieści się w zakresie typowym dla 8 palet tego klienta. W adresie odbiorcy poprawiono rozdzieloną literę (<span class=\"mono\">Ind ustrieweg → Industrieweg</span>) — zgodne z kartoteką odbiorcy. Zlecenie czeka na jedno kliknięcie, nie na przepisanie.",
+      json:
+        "{\n" +
+        '  "zrodlo":     { "typ": "skan", "plik": "TO_NF-2026-4471.pdf", "ocr": true, "jezyk": "en" },\n' +
+        '  "kontrahent": { "nazwa": "NORDIC FURNITURE AB", "vatUE": "SE556743219801", "kartotekaERP": "K/0311" },\n' +
+        '  "zaladunek":  { "adres": "Hamnvägen 8", "miasto": "Malmö", "kod": "211 20", "kraj": "SE",\n' +
+        '                  "od": "2026-08-19T10:00", "do": null },\n' +
+        '  "rozladunek": { "odbiorca": "BOMEB GmbH", "adres": "Industrieweg 6", "miasto": "Venlo",\n' +
+        '                  "kod": "5911 KJ", "kraj": "NL" },\n' +
+        '  "ladunek":    { "jednostki": 8, "typJednostki": "paleta", "opis": "meble w paczkach płaskich",\n' +
+        '                  "wagaKg": 3200, "adr": false },\n' +
+        '  "warunki":    { "incoterms": "DAP", "refKlienta": "NF-2026-4471" },\n' +
+        '  "pewnosc":    { "min": 0.71, "doPotwierdzenia": ["ladunek.wagaKg", "rozladunek.adres"] }\n' +
+        "}"
+    },
+    mail: {
+      cls: "doc",
+      doc:
+        '<span class="doc-label">e-mail · zwykły tekst</span>' +
+        '<div class="doc-title">Re: transport na czwartek</div>' +
+        'Od: <span data-f="klient">k.witkowska@profil-okna.pl</span><br>' +
+        "Wysłano: piątek, 14.08.2026, 22:31<br><br>" +
+        "Cześć,<br>" +
+        'potrzebuję auta <span data-f="termin">na czwartek</span>, odbiór z naszego magazynu <span data-f="zaladunek">w Gnieźnie</span> koło 14:00.<br>' +
+        'Będzie <span data-f="towar">10 palet</span> okien, waga <span data-f="waga">jakieś 3,5 tony</span>.<br>' +
+        'Dostawa <span data-f="rozladunek">do Berlina, adres jak ostatnio</span>, rozładunek u nich tylko do 15:00.<br><br>' +
+        "Dzięki, Kasia",
+      rows: [
+        ["podpis + domena nadawcy", "kontrahent.nazwa + nip", "PROFIL-OKNA Sp. z o.o. · 7842219043", "klient", "ok", "96%"],
+        ["„na czwartek\"", "zaladunek.okno", "2026-08-20 · ok. 14:00", "termin", "ok", "95%"],
+        ["„magazyn w Gnieźnie\"", "zaladunek.adres", "ul. Składowa 18, 62-200 Gniezno, PL", "zaladunek", "warn", "84%"],
+        ["„do Berlina, jak ostatnio\"", "rozladunek.adres", "Grünauer Str. 14, 12557 Berlin, DE", "rozladunek", "ok", "93%"],
+        ["„10 palet okien\"", "ladunek.jednostki + opis", "10 × paleta · okna PVC", "towar", "ok", "97%"],
+        ["„jakieś 3,5 tony\"", "ladunek.wagaKg", "3500 (deklaracja szacunkowa)", "waga", "warn", "62%"]
+      ],
+      flag: "<b>Rozstrzygnięte z kontekstu, ale oznaczone:</b> „adres jak ostatnio\" → adres z <span class=\"mono\">6 z 6</span> ostatnich dostaw tego klienta do Berlina. „Magazyn w Gnieźnie\" → w kartotece są <span class=\"mono\">2 adresy</span> w Gnieźnie; wskazano ten używany w 11 z 13 zleceń. Waga podana jako „jakieś\" — do potwierdzenia przed awizacją, bo od niej zależy dobór auta. Pytanie do klienta zostało już przygotowane.",
+      json:
+        "{\n" +
+        '  "zrodlo":     { "typ": "email", "watek": "Re: transport na czwartek", "odebrano": "2026-08-14T22:31+02:00" },\n' +
+        '  "kontrahent": { "nazwa": "PROFIL-OKNA Sp. z o.o.", "nip": "7842219043", "kartotekaERP": "K/0117" },\n' +
+        '  "zaladunek":  { "adres": "ul. Składowa 18", "miasto": "Gniezno", "kod": "62-200", "kraj": "PL",\n' +
+        '                  "od": "2026-08-20T13:30", "do": "2026-08-20T15:00" },\n' +
+        '  "rozladunek": { "adres": "Grünauer Str. 14", "miasto": "Berlin", "kod": "12557", "kraj": "DE",\n' +
+        '                  "do": "2026-08-21T15:00" },\n' +
+        '  "ladunek":    { "jednostki": 10, "typJednostki": "paleta", "opis": "okna PVC", "wagaKg": 3500, "adr": false },\n' +
+        '  "domysly":    [\n' +
+        '    { "pole": "rozladunek.adres", "podstawa": "historia zleceń klienta (6 z 6 ostatnich do Berlina)" },\n' +
+        '    { "pole": "zaladunek.adres", "podstawa": "kartoteka K/0117, adres używany w 11 z 13 zleceń" }\n' +
+        "  ],\n" +
+        '  "pewnosc":    { "min": 0.62, "doPotwierdzenia": ["ladunek.wagaKg", "zaladunek.adres"] }\n' +
+        "}"
+    }
+  };
+
+  var d1cur = "pdf", d1busy = false;
+  function d1render() {
+    var d = d1data[d1cur];
+    var doc = $("d1doc");
+    doc.className = d.cls;
+    doc.innerHTML = d.doc;
+    $("d1map").innerHTML = "";
+    $("d1flag").classList.add("hidden");
+    $("d1json").classList.add("hidden");
+    $("d1jsoncap").classList.add("hidden");
+    $("d1reset").classList.add("hidden");
+    var run = $("d1run");
+    run.disabled = false;
+    run.textContent = "Przetwórz zlecenie";
+  }
+  document.querySelectorAll("#d1src .srcbtn").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      if (d1busy) return;
+      document.querySelectorAll("#d1src .srcbtn").forEach(function (b) { b.classList.remove("active"); });
+      btn.classList.add("active");
+      d1cur = btn.dataset.src;
+      d1render();
+    });
+  });
+  d1render();
+
+  $("d1run").addEventListener("click", async function () {
+    if (d1busy) return;
+    d1busy = true;
+    this.disabled = true;
+    this.textContent = "Czytanie dokumentu…";
+    var d = d1data[d1cur];
+    var body = $("d1map");
+    body.innerHTML = "";
+    for (var i = 0; i < d.rows.length; i++) {
+      var row = d.rows[i];
+      document.querySelectorAll('#d1doc [data-f="' + row[3] + '"]').forEach(function (s) { s.classList.add("hl"); });
+      var tr = document.createElement("tr");
+      tr.className = "row-in";
+      tr.innerHTML =
+        '<td class="src">' + row[0] + "</td>" +
+        '<td class="fld">' + row[1] + "</td>" +
+        '<td class="val">' + row[2] +
+        ' <span class="chip chip-' + row[4] + '" title="pewność odczytu">' + row[5] + "</span></td>";
+      body.appendChild(tr);
+      await sleep(420);
+    }
+    await sleep(250);
+    if (d.flag) {
+      var flag = $("d1flag");
+      flag.innerHTML = d.flag;
+      flag.classList.remove("hidden");
+      await sleep(400);
+    }
+    $("d1jsoncap").classList.remove("hidden");
+    var pre = $("d1json");
+    pre.innerHTML = colorJson(d.json);
+    pre.classList.remove("hidden");
+    this.textContent = "Gotowe ✓";
+    $("d1reset").classList.remove("hidden");
+    d1busy = false;
+  });
+  $("d1reset").addEventListener("click", function () {
+    if (d1busy) return;
+    d1render();
+  });
+
+  /* ============ DEMO 2: BRAMKA JAKOŚCI ============ */
+  var d2items = [
+    ["f-bad", "duplikat", "To samo zlecenie przyszło dwa razy: jako PDF od <b>NORDIC FURNITURE</b> (02:14) i jako treść maila od ich spedytora (05:41) — wspólna referencja <span class=\"mono\">NF-2026-4471</span>. Scalono w jedno; w ERP powstanie jeden dokument zamiast dwóch."],
+    ["f-bad", "brak danych", "Zlecenie z adresu <span class=\"mono\">zakupy@stolmet.com.pl</span> bez NIP-u i bez nazwy firmy w treści. Dopasowano po domenie i historii do <b>K/0208 STOLMET</b> — pewność <span class=\"mono\">88%</span>, do akceptacji jednym kliknięciem."],
+    ["f-warn", "sprzeczność", "10 palet okien PVC przy deklarowanej wadze <b class=\"mono\">3 500 kg</b> — historycznie ten klient ładuje <span class=\"mono\">6–8 t</span> przy tej liczbie palet. Ryzyko dobrania za małego auta. Pytanie do klienta przygotowane, czeka na wysyłkę."],
+    ["f-warn", "termin niewykonalny", "Rozładunek w Berlinie „do 15:00\" przy załadunku w Gnieźnie o 14:00 poprzedniego dnia — wykonalne tylko przy wyjeździe wieczorem. Flaga dla dyspozytora <b>przed</b> potwierdzeniem terminu klientowi."],
+    ["f-warn", "zmiana w wątku", "Klient <b>MEBLE-EX</b> dopisał w kolejnym mailu: „jednak 12 palet zamiast 10\". Zlecenie oznaczone jako wersja 2, różnica podświetlona; dokument nie był jeszcze wysłany do przewoźnika."],
+    ["f-ok", "komplet", "<b class=\"mono\">18 z 23</b> zleceń ma komplet pól, zgodne kartoteki i stawki w granicach cennika — przeszły dalej automatycznie, z potwierdzeniem wysłanym klientom w ciągu 2 minut od wpłynięcia maila."]
+  ];
+  var d2busy = false;
+  $("d2run").addEventListener("click", async function () {
+    if (d2busy) return;
+    d2busy = true;
+    this.disabled = true;
+    this.textContent = "Analiza skrzynki…";
+    var out = $("d2out");
+    out.innerHTML = "";
+    $("d2sum").classList.add("hidden");
+    var bar = $("d2bar");
+    bar.style.width = "0";
+    for (var i = 0; i < d2items.length; i++) {
+      bar.style.width = ((i + 1) / d2items.length) * 100 + "%";
+      await sleep(520);
+      var li = document.createElement("li");
+      li.className = d2items[i][0];
+      li.innerHTML = '<span class="fk">' + d2items[i][1] + "</span>" + d2items[i][2];
+      out.appendChild(li);
+      requestAnimationFrame(function () {
+        requestAnimationFrame(function () { out.lastElementChild.classList.add("show"); });
+      });
+    }
+    await sleep(400);
+    $("d2sum").classList.remove("hidden");
+    this.textContent = "Gotowe ✓";
+    $("d2reset").classList.remove("hidden");
+    d2busy = false;
+  });
+  $("d2reset").addEventListener("click", function () {
+    if (d2busy) return;
+    $("d2out").innerHTML = "";
+    $("d2sum").classList.add("hidden");
+    $("d2bar").style.width = "0";
+    this.classList.add("hidden");
+    var run = $("d2run");
+    run.disabled = false;
+    run.textContent = "Sprawdź nocną skrzynkę";
+  });
+
+  /* ============ DEMO 3: KARTOTEKI ============ */
+  var d3rows = [
+    ["„MEBLE EX sp.z o.o.\"<br><span style=\"opacity:.7\">z PDF-a, bez myślnika</span>",
+     "<b>K/0042</b> MEBLE-EX Sp. z o.o.<small>kontrahent · płatnik · termin 30 dni</small>",
+     "NIP <span class=\"mono\">7792351148</span> — zgodny", "ok", "100%"],
+    ["„NORDIC FURNITURE AB\"",
+     "<b>K/0311</b> NORDIC FURNITURE AB<small>kontrahent UE · waluta EUR</small>",
+     "VAT UE <span class=\"mono\">SE556743219801</span> — potwierdzony w VIES", "ok", "98%"],
+    ["„BOMEB GmbH, Venlo\"<br><span style=\"opacity:.7\">odbiorca, pierwszy raz</span>",
+     "<b>brak w kartotece</b><small>propozycja nowej karty odbiorcy + adres dostawy</small>",
+     "dane pobrane z VIES · adres z dokumentu", "warn", "do akceptacji"],
+    ["„magazyn w Gnieźnie\"",
+     "<b>K/0117 · adres A/2</b> ul. Składowa 18<small>drugi adres w Gnieźnie: ul. Wrzesińska 4 (2 zlecenia)</small>",
+     "historia zleceń: 11 z 13 załadunków", "warn", "84%"],
+    ["„transport 12 palet PL → DE\"",
+     "<b>TR-EU-FTL</b> Transport drogowy FTL — UE<small>stawka z umowy 2026/17, poz. 4</small>",
+     "relacja + liczba jednostek + typ auta", "ok", "96%"],
+    ["„meble tapicerowane\"",
+     "<b>GEN-04</b> ładunek ogólny, bez ADR<small>bez wymagań temperaturowych</small>",
+     "słownik grup ładunku", "ok", "97%"]
+  ];
+  var d3busy = false;
+  $("d3run").addEventListener("click", async function () {
+    if (d3busy) return;
+    d3busy = true;
+    this.disabled = true;
+    this.textContent = "Przeszukiwanie kartotek…";
+    var out = $("d3out");
+    out.innerHTML = "";
+    $("d3sum").classList.add("hidden");
+    for (var i = 0; i < d3rows.length; i++) {
+      var r = d3rows[i];
+      var tr = document.createElement("tr");
+      tr.className = "row-in";
+      tr.innerHTML =
+        '<td class="raw">' + r[0] + "</td>" +
+        '<td class="hit">' + r[1] + "</td>" +
+        '<td style="font-size:.8rem; color:var(--ink-soft)">' + r[2] + "</td>" +
+        '<td><span class="chip chip-' + r[3] + '">' + r[4] + "</span></td>";
+      out.appendChild(tr);
+      await sleep(430);
+    }
+    await sleep(300);
+    $("d3sum").classList.remove("hidden");
+    this.textContent = "Gotowe ✓";
+    $("d3reset").classList.remove("hidden");
+    d3busy = false;
+  });
+  $("d3reset").addEventListener("click", function () {
+    if (d3busy) return;
+    $("d3out").innerHTML = "";
+    $("d3sum").classList.add("hidden");
+    this.classList.add("hidden");
+    var run = $("d3run");
+    run.disabled = false;
+    run.textContent = "Dopasuj do kartotek";
+  });
+
+  /* ============ DEMO 4: WYSYŁKA DO ERP ============ */
+  var d4steps = [
+    ["s-ok", "Normalizacja do schematu <span class=\"mono\">zlecenie.v3</span>", "wszystkie pola wymagane obecne · pewność min. 97%", "00:00"],
+    ["s-ok", "Walidacja słowników", "kody krajów, jednostki ładunkowe, waluty, warunki Incoterms", "00:03"],
+    ["s-ok", "Kontrola limitu kredytowego w Comarchu", "K/0042 · wykorzystanie limitu 62% · brak przeterminowanych faktur", "00:07"],
+    ["s-bad", "POST /api/zlecenia → <b>422 Unprocessable</b>", "ERP odrzucił: nieprawidłowy kod kraju „GER\" w adresie rozładunku (klient wpisał tak w formularzu)", "00:11"],
+    ["s-warn", "Auto-korekta i ponowienie", "„GER\" → <span class=\"mono\">DE</span> wg słownika ISO 3166; reguła zapamiętana dla tego klienta", "00:13"],
+    ["s-ok", "Dokument utworzony w Comarch ERP XL", "ZS/2026/08/141 · powiązany kontrahent K/0042 · pozycja usługi TR-EU-FTL", "00:21"],
+    ["s-ok", "Załączniki dopięte do dokumentu", "oryginalny PDF zlecenia + JSON źródłowy (ślad audytowy: co i skąd zostało odczytane)", "00:26"],
+    ["s-ok", "Auto-odpowiedź do klienta", "„Przyjęliśmy zlecenie, nr ZS/2026/08/141, załadunek 18.08, 08:00–12:00\" · wysłano o 23:12", "00:33"],
+    ["s-ok", "Zadanie dla dyspozytora", "„przypisz przewoźnika do ZS/2026/08/141\" — jedyny krok, który wymaga człowieka", "00:38"]
+  ];
+  var d4busy = false;
+  $("d4run").addEventListener("click", async function () {
+    if (d4busy) return;
+    d4busy = true;
+    this.disabled = true;
+    this.textContent = "Wysyłanie…";
+    var out = $("d4out");
+    out.innerHTML = "";
+    $("d4doc").classList.add("hidden");
+    for (var i = 0; i < d4steps.length; i++) {
+      var s = d4steps[i];
+      var li = document.createElement("li");
+      li.className = s[0];
+      li.innerHTML = '<div class="st"><span>' + s[1] + '</span><span class="t">+' + s[3] + " s</span></div>" +
+        (s[2] ? "<small>" + s[2] + "</small>" : "");
+      out.appendChild(li);
+      requestAnimationFrame(function () {
+        requestAnimationFrame(function () { out.lastElementChild.classList.add("show"); });
+      });
+      await sleep(s[0] === "s-bad" ? 900 : 520);
+    }
+    await sleep(300);
+    $("d4doc").classList.remove("hidden");
+    this.textContent = "Gotowe ✓";
+    $("d4reset").classList.remove("hidden");
+    d4busy = false;
+  });
+  $("d4reset").addEventListener("click", function () {
+    if (d4busy) return;
+    $("d4out").innerHTML = "";
+    $("d4doc").classList.add("hidden");
+    this.classList.add("hidden");
+    var run = $("d4run");
+    run.disabled = false;
+    run.textContent = "Wyślij zlecenie do ERP";
+  });
+
+  /* ============ DEMO 5: PYTANIA ============ */
+  function addMsg(container, cls, whoHtml, bodyHtml) {
+    var div = document.createElement("div");
+    div.className = "msg " + cls;
+    div.innerHTML = (whoHtml ? '<span class="who">' + whoHtml + "</span>" : "") + bodyHtml;
+    container.appendChild(div);
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () { div.classList.add("show"); });
+    });
+    return div;
+  }
+  var d5qa = [
+    ["Które zlecenia z nocy czekają na moją decyzję?",
+     'Z <b class="num">23</b> wiadomości z nocy czeka <b class="num">5</b> zleceń: <span class="num">2</span> na potwierdzenie wagi (PROFIL-OKNA, STOLMET), <span class="num">1</span> na akceptację nowej kartoteki odbiorcy (BOMEB GmbH, Venlo), <span class="num">1</span> z terminem rozładunku na granicy wykonalności (Gniezno → Berlin, do 15:00) i <span class="num">1</span> ze stawką o <span class="num">180 EUR</span> niższą niż w umowie. Pozostałe <b class="num">18</b> jest już w Comarchu, klienci dostali potwierdzenia. Źródło: skrzynka zlecenia@ + rejestr wyjątków.'],
+    ["Ile zleceń od PROFIL-OKNA w tym miesiącu i ile zmieniali po przyjęciu?",
+     'W sierpniu <b class="num">37</b> zleceń (rok temu w tym samym okresie: <span class="num">29</span>). Zmiany po przyjęciu: <b class="num">11</b> zleceń, w tym <span class="num">7</span> zmian liczby palet i <span class="num">3</span> zmiany terminu załadunku w dniu wyjazdu. Średni czas od maila do dokumentu w ERP: <span class="num">54 s</span>. Uwaga: <b>4 zmiany</b> przyszły po awizacji u odbiorcy — to najczęstsze źródło postojowego u tego klienta. Źródło: Comarch (historia dokumentów) + wątki mailowe.'],
+    ["Czy zlecenie ZS/2026/08/141 ma komplet dokumentów?",
+     'Prawie. Jest: oryginał zlecenia (PDF), JSON źródłowy, potwierdzenie dla klienta, zlecenie dla przewoźnika i awizacja u odbiorcy w Dortmundzie (slot 19.08, 07:00–09:00). <b>Brakuje POD-u</b> — kierowca rozładował się wczoraj o 08:40, skan listu nie wpłynął. Faktura dla klienta jest wstrzymana przez regułę „brak POD\", a monit do przewoźnika wyszedł dziś o 09:00. Źródło: dokument w Comarchu + załączniki + skrzynka.']
+  ];
+  var d5busy = false;
+  document.querySelectorAll("#d5btns .qbtn").forEach(function (btn) {
+    btn.addEventListener("click", async function () {
+      if (d5busy || btn.disabled) return;
+      d5busy = true;
+      btn.disabled = true;
+      var qa = d5qa[parseInt(btn.dataset.q, 10)];
+      var chat = $("d5chat");
+      addMsg(chat, "msg-user", "Ty", qa[0]);
+      await sleep(500);
+      var t = document.createElement("div");
+      t.className = "typing";
+      t.textContent = "asystent szuka w ERP i skrzynce";
+      chat.appendChild(t);
+      await sleep(1200);
+      t.remove();
+      addMsg(chat, "msg-agent", "Asystent spedycji", '<div class="answer">' + qa[1] + "</div>");
+      $("d5reset").classList.remove("hidden");
+      d5busy = false;
+    });
+  });
+  $("d5reset").addEventListener("click", function () {
+    if (d5busy) return;
+    $("d5chat").innerHTML = "";
+    document.querySelectorAll("#d5btns .qbtn").forEach(function (b) { b.disabled = false; });
+    this.classList.add("hidden");
+  });
+})();
+</script>
+</body>
+</html>
