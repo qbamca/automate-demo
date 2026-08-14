@@ -19,6 +19,8 @@
     --geo-soft: #FBE8DD;
     --wyc: #176E4B;
     --wyc-soft: #DEEFE5;
+    --spd: #0F6F7C;
+    --spd-soft: #DCEDEF;
     --shadow: 0 1px 2px rgba(35,38,43,.06), 0 10px 28px -14px rgba(35,38,43,.18);
   }
   @media (prefers-color-scheme: dark) {
@@ -27,6 +29,7 @@
       --line: #30353C; --line-soft: #262B31; --accent: #7FA6E0;
       --geo: #F0692C; --geo-soft: #3A2418;
       --wyc: #46B97C; --wyc-soft: #1B3226;
+      --spd: #3FBCCB; --spd-soft: #123036;
       --shadow: 0 1px 2px rgba(0,0,0,.3), 0 12px 30px -14px rgba(0,0,0,.55);
     }
   }
@@ -34,12 +37,14 @@
     --bg: #F6F5F2; --bg-raise: #FFFFFF; --ink: #23262B; --ink-soft: #5B6067;
     --line: #DBD8D0; --line-soft: #E8E5DE; --accent: #2F5AA8;
     --geo: #D9480F; --geo-soft: #FBE8DD; --wyc: #176E4B; --wyc-soft: #DEEFE5;
+    --spd: #0F6F7C; --spd-soft: #DCEDEF;
     --shadow: 0 1px 2px rgba(35,38,43,.06), 0 10px 28px -14px rgba(35,38,43,.18);
   }
   :root[data-theme="dark"] {
     --bg: #16181C; --bg-raise: #1D2126; --ink: #E7E5E0; --ink-soft: #9AA0A8;
     --line: #30353C; --line-soft: #262B31; --accent: #7FA6E0;
     --geo: #F0692C; --geo-soft: #3A2418; --wyc: #46B97C; --wyc-soft: #1B3226;
+    --spd: #3FBCCB; --spd-soft: #123036;
     --shadow: 0 1px 2px rgba(0,0,0,.3), 0 12px 30px -14px rgba(0,0,0,.55);
   }
   * { box-sizing: border-box; }
@@ -91,6 +96,7 @@
   .demo-card .go { font: 600 .88rem var(--sans); color: var(--card-accent); }
   .card-geo { --card-accent: var(--geo); --card-soft: var(--geo-soft); }
   .card-wyc { --card-accent: var(--wyc); --card-soft: var(--wyc-soft); }
+  .card-spd { --card-accent: var(--spd); --card-soft: var(--spd-soft); }
   .card-next {
     border-style: dashed; background: transparent;
     display: flex; flex-direction: column; justify-content: center;
@@ -122,6 +128,12 @@
       <span class="k">wycena nieruchomości</span>
       <h2>Rzeczoznawca majątkowy</h2>
       <p>Akty notarialne i RCN do bazy porównawczej, czytanie ksiąg wieczystych, wyciągi z MPZP, kontrola spójności operatu, pytania o rynek i kancelarię.</p>
+      <span class="go">Otwórz demo →</span>
+    </a>
+    <a class="demo-card card-spd" href="spedycja/">
+      <span class="k">spedycja · TSL</span>
+      <h2>Zlecenia transportowe do ERP</h2>
+      <p>Zlecenia w PDF-ie, skanie i zwykłym mailu — różne etykiety, to samo znaczenie. Odczyt do jednego schematu JSON, kontrola braków i sprzeczności, dopasowanie kartotek i dokument w Comarchu bez przepisywania.</p>
       <span class="go">Otwórz demo →</span>
     </a>
     <div class="demo-card card-next">

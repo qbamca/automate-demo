@@ -13,6 +13,7 @@ Strona: **https://qbamca.github.io/automate-demo/**
 |---|---|---|
 | [`geodezja/`](geodezja/) | Geodeta przy projektach liniowych | EGiB, służebności, raporty z terenu, kontrola danych brygad, operaty pod PODGiK |
 | [`wycena/`](wycena/) | Rzeczoznawca majątkowy | akty notarialne, RCN, księgi wieczyste, MPZP, kontrola spójności operatu |
+| [`spedycja/`](spedycja/) | Spedycja / TSL | zlecenia transportowe z PDF-ów, skanów i maili → jeden schemat JSON, bramka jakości, kartoteki i dokument w Comarch ERP |
 
 ## Zasady wspólne
 
